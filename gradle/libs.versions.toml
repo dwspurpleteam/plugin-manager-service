@@ -1,0 +1,33 @@
+[versions]
+io-github-mvettosi-tomlify-version = "1.0.0"
+org-jooq-jooq-version = "3.21.9"
+org-jooq-jooq-kotlin-version = "3.21.9"
+org-jooq-jooq-kotlin-coroutines-version = "3.21.9"
+org-postgresql-r2dbc-postgresql-version = "1.1.3.RELEASE"
+io-r2dbc-r2dbc-pool-version = "1.0.2.RELEASE"
+
+[bundles]
+
+[libraries]
+io-quarkus-quarkus-kotlin = { group = "io.quarkus", name = "quarkus-kotlin" }
+org-jetbrains-kotlin-kotlin-stdlib-jdk8 = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8" }
+io-quarkus-quarkus-arc = { group = "io.quarkus", name = "quarkus-arc" }
+io-quarkus-quarkus-rest-kotlin = { group = "io.quarkus", name = "quarkus-rest-kotlin" }
+io-quarkus-quarkus-rest-jackson = { group = "io.quarkus", name = "quarkus-rest-jackson" }
+io-quarkus-quarkus-rest-client-jackson = { group = "io.quarkus", name = "quarkus-rest-client-jackson" }
+io-quarkus-quarkus-grpc = { group = "io.quarkus", name = "quarkus-grpc" }
+io-smallrye-reactive-mutiny-kotlin = { group = "io.smallrye.reactive", name = "mutiny-kotlin" }
+io-quarkus-quarkus-flyway = { group = "io.quarkus", name = "quarkus-flyway" }
+io-quarkus-quarkus-jdbc-postgresql = { group = "io.quarkus", name = "quarkus-jdbc-postgresql" }
+io-quarkus-quarkus-quartz = { group = "io.quarkus", name = "quarkus-quartz" }
+org-jooq-jooq = { group = "org.jooq", name = "jooq", version.ref = "org-jooq-jooq-version" }
+org-jooq-jooq-kotlin = { group = "org.jooq", name = "jooq-kotlin", version.ref = "org-jooq-jooq-kotlin-version" }
+org-jooq-jooq-kotlin-coroutines = { group = "org.jooq", name = "jooq-kotlin-coroutines", version.ref = "org-jooq-jooq-kotlin-coroutines-version" }
+org-postgresql-r2dbc-postgresql = { group = "org.postgresql", name = "r2dbc-postgresql", version.ref = "org-postgresql-r2dbc-postgresql-version" }
+io-r2dbc-r2dbc-pool = { group = "io.r2dbc", name = "r2dbc-pool", version.ref = "io-r2dbc-r2dbc-pool-version" }
+org-jetbrains-kotlinx-kotlinx-coroutines-reactive = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-reactive" }
+io-quarkus-quarkus-junit = { group = "io.quarkus", name = "quarkus-junit" }
+io-rest-assured-rest-assured = { group = "io.rest-assured", name = "rest-assured" }
+
+[plugins]
+io-github-mvettosi-tomlify = { id = "io.github.mvettosi.tomlify", version.ref = "io-github-mvettosi-tomlify-version" }
