@@ -12,6 +12,40 @@ You can run your application in dev mode that enables live coding using:
 ./gradlew quarkusDev
 ```
 
+## Database migrations and jOOQ generation
+
+Put Flyway SQL migrations in `src/main/resources/db/migration` using names such as
+`V1__create_plugins.sql`. Quarkus applies them automatically on application startup.
+
+Generate the jOOQ model with:
+
+```shell script
+./gradlew generateJooq
+```
+
+The task starts an ephemeral PostgreSQL Testcontainer, applies all Flyway migrations,
+and writes the generated Java model to `src/quarkus-generated-sources/java`. The output
+directory is intentionally excluded from Git and is also generated automatically before
+the project's Java or Kotlin compilation tasks.
+
+Runtime database access uses jOOQ over a pooled R2DBC connection. Configure it with the
+following environment variables: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`,
+`DB_PASSWORD`, `DB_POOL_INITIAL_SIZE`, `DB_POOL_MAX_SIZE`, `DB_POOL_MAX_IDLE_TIME`,
+`DB_POOL_MAX_ACQUIRE_TIME`, `DB_POOL_MAX_CREATE_CONNECTION_TIME`, and
+`DB_MIGRATION_POOL_MAX_SIZE`. Duration values use ISO-8601 notation, for example `PT10S`
+or `PT30M`. The small JDBC pool is used by Flyway; application queries use the R2DBC pool.
+
+Use `JooqTransaction` for suspend transactions and execute all statements through the
+transaction-scoped `DSLContext` passed to the block:
+
+```kotlin
+transaction.transaction { dsl ->
+    dsl.insertInto(/* table */)
+        .set(/* field */, /* value */)
+        .awaitSingle()
+}
+```
+
 > **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
 
 ## Packaging and running the application
