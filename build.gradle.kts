@@ -1,9 +1,12 @@
+import dev.detekt.gradle.Detekt
 import org.gradle.kotlin.dsl.sourceSets
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    kotlin("jvm") version "2.4.10"
-    kotlin("plugin.allopen") version "2.4.10"
-    id("io.quarkus")
+    alias(libs.plugins.org.jetbrains.kotlin.jvm)
+    alias(libs.plugins.org.jetbrains.kotlin.plugin.allopen)
+    alias(libs.plugins.io.quarkus)
+    alias(libs.plugins.dev.detekt)
     alias(libs.plugins.io.github.mvettosi.tomlify)
 }
 
@@ -12,17 +15,12 @@ repositories {
     mavenLocal()
 }
 
-val quarkusPlatformGroupId = project.property("quarkusPlatformGroupId").toString()
-val quarkusPlatformArtifactId = project.property("quarkusPlatformArtifactId").toString()
-val quarkusPlatformVersion = project.property("quarkusPlatformVersion").toString()
-val quarkusPlatformCoordinates = "$quarkusPlatformGroupId:$quarkusPlatformArtifactId:$quarkusPlatformVersion"
-
 val jooqGenerator = sourceSets.create("jooqGenerator")
 val migrationsDirectory = layout.projectDirectory.dir("src/main/resources/db/migration")
 val jooqOutputDirectory = layout.projectDirectory.dir("src/quarkus-generated-sources/java")
 
 dependencies {
-    implementation(enforcedPlatform(quarkusPlatformCoordinates))
+    implementation(enforcedPlatform(libs.io.quarkus.platform.quarkus.bom))
 
     // Kotlin и CDI
     implementation(libs.io.quarkus.quarkus.kotlin)
@@ -62,13 +60,72 @@ dependencies {
     testImplementation(libs.io.rest.assured.rest.assured)
     testImplementation(libs.org.testcontainers.testcontainers.postgresql)
 
-    add(jooqGenerator.implementationConfigurationName, enforcedPlatform(quarkusPlatformCoordinates))
+    detektPlugins(libs.dev.detekt.rules.ktlint.wrapper)
+
+    add(jooqGenerator.implementationConfigurationName, enforcedPlatform(libs.io.quarkus.platform.quarkus.bom))
     add(jooqGenerator.implementationConfigurationName, libs.org.jooq.jooq.codegen)
     add(jooqGenerator.implementationConfigurationName, libs.org.flywaydb.flyway.core)
     add(jooqGenerator.implementationConfigurationName, libs.org.flywaydb.flyway.database.postgresql)
     add(jooqGenerator.implementationConfigurationName, libs.org.postgresql.postgresql)
     add(jooqGenerator.implementationConfigurationName, libs.org.testcontainers.testcontainers.postgresql)
     add(jooqGenerator.runtimeOnlyConfigurationName, libs.org.slf4j.slf4j.simple)
+}
+
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(layout.projectDirectory.file("config/detekt/detekt.yml"))
+    parallel = true
+}
+
+val lintDependencyDeclarations by tasks.registering {
+    group = "verification"
+    description = "Rejects string dependency coordinates in Gradle Kotlin DSL scripts."
+
+    val gradleScripts = files(
+        layout.projectDirectory.file("build.gradle.kts"),
+        layout.projectDirectory.file("settings.gradle.kts"),
+    )
+    inputs.files(gradleScripts)
+
+    doLast {
+        val directStringNotation = Regex(
+            """(?m)^\s*(?:api|implementation|compileOnly|runtimeOnly|annotationProcessor|classpath|kapt|ksp|detektPlugins|[A-Za-z][A-Za-z0-9]*(?:Api|Implementation|CompileOnly|RuntimeOnly))\s*\(\s*(?:(?:enforcedPlatform|platform)\s*\(\s*)?[\"'][^\"'\r\n]+:[^\"'\r\n]+[\"']"""
+        )
+        val addStringNotation = Regex(
+            """(?m)^\s*add\s*\(\s*[^,]+,\s*(?:(?:enforcedPlatform|platform)\s*\(\s*)?[\"'][^\"'\r\n]+:[^\"'\r\n]+[\"']"""
+        )
+        val namedStringNotation = Regex(
+            """(?m)^\s*(?:api|implementation|compileOnly|runtimeOnly|annotationProcessor|classpath|kapt|ksp|detektPlugins|[A-Za-z][A-Za-z0-9]*(?:Api|Implementation|CompileOnly|RuntimeOnly))\s*\([^)]*\b(?:group|name|module)\s*=\s*[\"']"""
+        )
+
+        val violations = gradleScripts.files.flatMap { script ->
+            val content = script.readText()
+            (directStringNotation.findAll(content) +
+                    addStringNotation.findAll(content) +
+                    namedStringNotation.findAll(content))
+                .map { match ->
+                    val line = content.take(match.range.first).count { it == '\n' } + 1
+                    "${script.relativeTo(rootDir)}:$line"
+                }
+                .toList()
+        }
+
+        check(violations.isEmpty()) {
+            "Use the version catalog instead of string dependency coordinates:\n${violations.joinToString("\n")}"
+        }
+    }
+}
+
+tasks.named<Detekt>("detekt") {
+    classpath.setFrom(
+        configurations.named("compileClasspath"),
+        configurations.named("testCompileClasspath"),
+    )
+    jvmTarget.set("21")
+}
+
+tasks.named("check") {
+    dependsOn(lintDependencyDeclarations)
 }
 
 group = "ru.itmo"
@@ -91,7 +148,7 @@ allOpen {
 
 kotlin {
     compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
+        jvmTarget = JvmTarget.JVM_21
         javaParameters = true
     }
 }

@@ -31,7 +31,7 @@ class JooqConfiguration {
                 .option(DATABASE, config.name())
                 .option(USER, config.username())
                 .option(PASSWORD, config.password())
-                .build()
+                .build(),
         )
 
         val pool = config.pool()
@@ -44,7 +44,7 @@ class JooqConfiguration {
                 .maxAcquireTime(pool.maxAcquireTime())
                 .maxCreateConnectionTime(pool.maxCreateConnectionTime())
                 .validationQuery(pool.validationQuery())
-                .build()
+                .build(),
         )
     }
 
@@ -53,10 +53,12 @@ class JooqConfiguration {
     fun dslContext(connectionPool: ConnectionPool): DSLContext = DSL.using(
         DefaultConfiguration()
             .set(connectionPool)
-            .set(SQLDialect.POSTGRES)
+            .set(SQLDialect.POSTGRES),
     )
 
-    fun disposeConnectionPool(@Disposes connectionPool: ConnectionPool) {
+    fun disposeConnectionPool(
+        @Disposes connectionPool: ConnectionPool,
+    ) {
         connectionPool.dispose()
     }
 }

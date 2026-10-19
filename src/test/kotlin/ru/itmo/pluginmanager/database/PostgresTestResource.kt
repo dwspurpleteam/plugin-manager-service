@@ -18,9 +18,11 @@ class PostgresTestResource : QuarkusTestResourceLifecycleManager {
             "database.name" to postgres.databaseName,
             "database.username" to postgres.username,
             "database.password" to postgres.password,
-            "quarkus.datasource.jdbc.url" to postgres.jdbcUrl,
-            "quarkus.datasource.username" to postgres.username,
-            "quarkus.datasource.password" to postgres.password
+            "database.migration.username" to postgres.username,
+            "database.migration.password" to postgres.password,
+            "quarkus.datasource.migration.jdbc.url" to postgres.jdbcUrl,
+            "quarkus.datasource.migration.username" to postgres.username,
+            "quarkus.datasource.migration.password" to postgres.password,
         )
     }
 

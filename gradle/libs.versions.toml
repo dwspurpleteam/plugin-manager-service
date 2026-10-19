@@ -1,5 +1,8 @@
 [versions]
+dev-detekt-version = "2.0.0-alpha.6"
 io-github-mvettosi-tomlify-version = "1.0.0"
+io-quarkus-platform-version = "3.40.1"
+org-jetbrains-kotlin-version = "2.4.10"
 org-jooq-jooq-version = "3.21.9"
 org-jooq-jooq-kotlin-version = "3.21.9"
 org-jooq-jooq-kotlin-coroutines-version = "3.21.9"
@@ -10,6 +13,8 @@ org-slf4j-version = "2.0.18"
 [bundles]
 
 [libraries]
+dev-detekt-rules-ktlint-wrapper = { group = "dev.detekt", name = "detekt-rules-ktlint-wrapper", version.ref = "dev-detekt-version" }
+io-quarkus-platform-quarkus-bom = { group = "io.quarkus.platform", name = "quarkus-bom", version.ref = "io-quarkus-platform-version" }
 io-quarkus-quarkus-kotlin = { group = "io.quarkus", name = "quarkus-kotlin" }
 org-jetbrains-kotlin-kotlin-stdlib-jdk8 = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8" }
 io-quarkus-quarkus-arc = { group = "io.quarkus", name = "quarkus-arc" }
@@ -37,4 +42,8 @@ io-quarkus-quarkus-junit = { group = "io.quarkus", name = "quarkus-junit" }
 io-rest-assured-rest-assured = { group = "io.rest-assured", name = "rest-assured" }
 
 [plugins]
+dev-detekt = { id = "dev.detekt", version.ref = "dev-detekt-version" }
 io-github-mvettosi-tomlify = { id = "io.github.mvettosi.tomlify", version.ref = "io-github-mvettosi-tomlify-version" }
+io-quarkus = { id = "io.quarkus", version.ref = "io-quarkus-platform-version" }
+org-jetbrains-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "org-jetbrains-kotlin-version" }
+org-jetbrains-kotlin-plugin-allopen = { id = "org.jetbrains.kotlin.plugin.allopen", version.ref = "org-jetbrains-kotlin-version" }

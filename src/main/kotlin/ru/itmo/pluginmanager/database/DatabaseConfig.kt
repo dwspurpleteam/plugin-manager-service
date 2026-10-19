@@ -15,7 +15,15 @@ interface DatabaseConfig {
 
     fun password(): String
 
+    fun migration(): Credentials
+
     fun pool(): Pool
+
+    interface Credentials {
+        fun username(): String
+
+        fun password(): String
+    }
 
     interface Pool {
         fun initialSize(): Int

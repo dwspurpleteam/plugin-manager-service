@@ -1,0 +1,29 @@
+config:
+  validation: true
+  warningsAsErrors: true
+
+style:
+  WildcardImport:
+    active: true
+    excludeImports: []
+  UnusedImport:
+    active: true
+  UnusedParameter:
+    active: true
+  UnusedPrivateClass:
+    active: true
+  UnusedPrivateFunction:
+    active: true
+  UnusedPrivateProperty:
+    active: true
+  UnusedVariable:
+    active: true
+
+ktlint:
+  active: true
+  code_style: ktlint_official
+  NoUnusedImports:
+    active: true
+  NoWildcardImports:
+    active: true
+    packagesToUseImportOnDemandProperty: ''
