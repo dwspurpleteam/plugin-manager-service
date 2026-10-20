@@ -14,6 +14,10 @@ class JooqConfigurationTest {
     @Inject
     lateinit var transaction: JooqTransaction
 
+    /**
+     * Тест проверяет выполнение запроса в suspend-транзакции через R2DBC на настоящем PostgreSQL.
+     * Ожидаемый результат: транзакция возвращает значение 1.
+     */
     @Test
     fun `executes query in suspend transaction over R2DBC`() = runBlocking {
         val value = transaction.transaction { dsl ->

@@ -1,5 +1,64 @@
 # plugin-manage-service
 
+Plugin Manager is the control plane for plugin activations in calls. It discovers
+and caches manifests, exposes signal routes and input media requirements, monitors
+availability and retains state history. It does not forward signals or media.
+
+Schema, package layout and public contracts are documented in
+[docs/plugin-manager-contracts.md](docs/plugin-manager-contracts.md).
+
+Unit tests are located in `src/test/kotlin` (`./gradlew test`). JVM integration tests
+are located in `src/integrationTest/kotlin` (`./gradlew integrationTest`) and use
+isolated infrastructure. Run both together with `./gradlew test integrationTest`.
+
+## Configuration and first activation
+
+Provide PostgreSQL and Redis and configure at least one registry:
+
+```properties
+plugin-manager.registries.example-registry.url=https://registry.example.com
+```
+
+Database credentials use the `DB_*` variables described below. Redis uses
+`REDIS_URL` (default `redis://localhost:6379`). Registry URLs and all `plugin-manager.*`
+policies can be set in `application.properties`, via Java system properties before
+`-jar`, or through the corresponding Quarkus/SmallRye environment overrides.
+Timeout, concurrency, retry, TTL and retention defaults are listed in the contract
+document. Startup rejects invalid limits and incompatible lease/deadline settings.
+
+```shell
+./gradlew assemble
+java -Dplugin-manager.registries.example-registry.url=https://registry.example.com \
+  -jar build/quarkus-app/quarkus-run.jar
+```
+
+```shell
+curl -i -H 'Content-Type: application/json' http://localhost:8080/v1/activations \
+  -d '{"callId":"call-10","pluginId":"example-plugin","requestedBy":"user-12","idempotencyKey":"activate-1"}'
+```
+
+Registration returns 202 with an activation ID without waiting for a registry or
+healthcheck. Poll `/v1/activations/{activationId}`; only ACTIVE permits reading
+`/signal-route` and `/media-types`. Add `pluginVersion` for an exact version; omitted
+version selects the first suitable registry's current latest and pins it for that
+activation. Reuse a key only for an identical original request.
+
+## Verification
+
+Java 21 and a working Docker/Testcontainers environment are required, including for
+the existing jOOQ generation. Tests never use the configured development database.
+
+```shell
+./gradlew detekt test integrationTest assemble lintDependencyDeclarations
+./gradlew generateJooq --rerun-tasks
+```
+
+Test reports are under `build/reports/tests/test` and `build/reports/tests/integrationTest`.
+The integration suite builds the packaged application and tests recovery by stopping
+and restarting separate JVMs with retained, isolated PostgreSQL/Redis containers.
+Its process logs are in `build/process-recovery.log`. The scheduler is disabled in
+the regular test profile; tests invoke processors explicitly instead of racing it.
+
 This project uses Quarkus, the Supersonic Subatomic Java Framework.
 
 If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
@@ -13,6 +72,33 @@ You can run your application in dev mode that enables live coding using:
 ```
 
 ## Database migrations and jOOQ generation
+
+### Create the database and roles
+
+Provision the database and roles separately from Flyway, using the standalone
+administrator bootstrap prepared for the installation. It is not included in the
+application migrations. The `plugin_manager_migration` role owns the database and
+creates schema objects; `plugin_manager_app` has CONNECT, schema USAGE and data
+access, but no schema CREATE permission. Default privileges of the migration role
+must grant SELECT/INSERT/UPDATE/DELETE on future tables and USAGE/SELECT on sequences
+to the application role. Application tables are created by Flyway at startup.
+
+The local-development defaults in `application.properties` are:
+
+| Setting | Value |
+| --- | --- |
+| Database | `plugin_manager` |
+| Application username | `plugin_manager_app` |
+| Application password | `plugin_manager_app_local_2026` |
+| Migration username | `plugin_manager_migration` |
+| Migration password | `plugin_manager_migration_local_2026` |
+
+Use a dedicated Plugin Manager database. For an existing installation, verify role
+ownership and privileges before starting the application. For non-local environments, provision secure passwords
+and configure `DB_PASSWORD` and `DB_MIGRATION_PASSWORD` accordingly; do not use the
+development passwords.
+
+### Apply migrations and generate models
 
 Put Flyway SQL migrations in `src/main/resources/db/migration` using names such as
 `V1__create_plugins.sql`. Quarkus applies them automatically on application startup.

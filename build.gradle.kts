@@ -16,6 +16,24 @@ repositories {
 }
 
 val jooqGenerator = sourceSets.create("jooqGenerator")
+val integrationTest = sourceSets.getByName("integrationTest")
+configurations[integrationTest.implementationConfigurationName].extendsFrom(configurations.testImplementation.get())
+configurations[integrationTest.runtimeOnlyConfigurationName].extendsFrom(configurations.testRuntimeOnly.get())
+integrationTest.compileClasspath += sourceSets.main.get().output
+integrationTest.runtimeClasspath += sourceSets.main.get().output
+integrationTest.compileClasspath += sourceSets.test.get().output
+integrationTest.runtimeClasspath += sourceSets.test.get().output
+
+val integrationTestTask = tasks.register<Test>("integrationTest") {
+    description = "Runs JVM integration tests against isolated infrastructure."
+    group = "verification"
+    testClassesDirs = integrationTest.output.classesDirs
+    classpath = integrationTest.runtimeClasspath
+    useJUnitPlatform()
+    shouldRunAfter(tasks.test)
+    dependsOn("quarkusBuild")
+}
+
 val migrationsDirectory = layout.projectDirectory.dir("src/main/resources/db/migration")
 val jooqOutputDirectory = layout.projectDirectory.dir("src/quarkus-generated-sources/java")
 
@@ -55,10 +73,13 @@ dependencies {
     implementation(libs.org.postgresql.r2dbc.postgresql)
     implementation(libs.io.r2dbc.r2dbc.pool)
     implementation(libs.org.jetbrains.kotlinx.kotlinx.coroutines.reactive)
+    implementation(libs.io.quarkus.quarkus.redis.client)
+    implementation(libs.com.fasterxml.jackson.module.kotlin)
 
     testImplementation(libs.io.quarkus.quarkus.junit)
     testImplementation(libs.io.rest.assured.rest.assured)
     testImplementation(libs.org.testcontainers.testcontainers.postgresql)
+    testImplementation(libs.org.testcontainers.testcontainers)
 
     detektPlugins(libs.dev.detekt.rules.ktlint.wrapper)
 
@@ -117,15 +138,20 @@ val lintDependencyDeclarations by tasks.registering {
 }
 
 tasks.named<Detekt>("detekt") {
+    source(layout.projectDirectory.dir("src/integrationTest/kotlin"))
     classpath.setFrom(
         configurations.named("compileClasspath"),
         configurations.named("testCompileClasspath"),
+        configurations.named("integrationTestCompileClasspath"),
+        sourceSets.main.get().output,
+        sourceSets.test.get().output,
     )
     jvmTarget.set("21")
 }
 
 tasks.named("check") {
     dependsOn(lintDependencyDeclarations)
+    dependsOn(integrationTestTask)
 }
 
 group = "ru.itmo"

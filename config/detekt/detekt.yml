@@ -3,6 +3,8 @@ config:
   warningsAsErrors: true
 
 style:
+  MagicNumber:
+    excludes: ['**/test/**', '**/integrationTest/**']
   WildcardImport:
     active: true
     excludeImports: []
@@ -18,6 +20,14 @@ style:
     active: true
   UnusedVariable:
     active: true
+
+naming:
+  FunctionNaming:
+    excludes: ['**/test/**', '**/integrationTest/**']
+
+potential-bugs:
+  UnsafeCallOnNullableType:
+    excludes: ['**/test/**', '**/integrationTest/**']
 
 ktlint:
   active: true

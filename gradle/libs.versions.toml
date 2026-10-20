@@ -21,6 +21,8 @@ io-quarkus-quarkus-arc = { group = "io.quarkus", name = "quarkus-arc" }
 io-quarkus-quarkus-rest-kotlin = { group = "io.quarkus", name = "quarkus-rest-kotlin" }
 io-quarkus-quarkus-rest-jackson = { group = "io.quarkus", name = "quarkus-rest-jackson" }
 io-quarkus-quarkus-rest-client-jackson = { group = "io.quarkus", name = "quarkus-rest-client-jackson" }
+io-quarkus-quarkus-redis-client = { group = "io.quarkus", name = "quarkus-redis-client" }
+com-fasterxml-jackson-module-kotlin = { group = "com.fasterxml.jackson.module", name = "jackson-module-kotlin" }
 io-quarkus-quarkus-grpc = { group = "io.quarkus", name = "quarkus-grpc" }
 io-smallrye-reactive-mutiny-kotlin = { group = "io.smallrye.reactive", name = "mutiny-kotlin" }
 io-quarkus-quarkus-flyway = { group = "io.quarkus", name = "quarkus-flyway" }
@@ -34,6 +36,7 @@ org-flywaydb-flyway-core = { group = "org.flywaydb", name = "flyway-core" }
 org-flywaydb-flyway-database-postgresql = { group = "org.flywaydb", name = "flyway-database-postgresql" }
 org-postgresql-postgresql = { group = "org.postgresql", name = "postgresql" }
 org-testcontainers-testcontainers-postgresql = { group = "org.testcontainers", name = "testcontainers-postgresql" }
+org-testcontainers-testcontainers = { group = "org.testcontainers", name = "testcontainers" }
 org-slf4j-slf4j-simple = { group = "org.slf4j", name = "slf4j-simple", version.ref = "org-slf4j-version" }
 org-postgresql-r2dbc-postgresql = { group = "org.postgresql", name = "r2dbc-postgresql", version.ref = "org-postgresql-r2dbc-postgresql-version" }
 io-r2dbc-r2dbc-pool = { group = "io.r2dbc", name = "r2dbc-pool", version.ref = "io-r2dbc-r2dbc-pool-version" }
