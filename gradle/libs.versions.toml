@@ -21,6 +21,7 @@ io-quarkus-quarkus-arc = { group = "io.quarkus", name = "quarkus-arc" }
 io-quarkus-quarkus-rest-kotlin = { group = "io.quarkus", name = "quarkus-rest-kotlin" }
 io-quarkus-quarkus-rest-jackson = { group = "io.quarkus", name = "quarkus-rest-jackson" }
 io-quarkus-quarkus-rest-client-jackson = { group = "io.quarkus", name = "quarkus-rest-client-jackson" }
+io-quarkus-quarkus-smallrye-openapi = { group = "io.quarkus", name = "quarkus-smallrye-openapi" }
 io-quarkus-quarkus-redis-client = { group = "io.quarkus", name = "quarkus-redis-client" }
 com-fasterxml-jackson-module-kotlin = { group = "com.fasterxml.jackson.module", name = "jackson-module-kotlin" }
 io-quarkus-quarkus-grpc = { group = "io.quarkus", name = "quarkus-grpc" }

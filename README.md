@@ -43,6 +43,10 @@ healthcheck. Poll `/v1/activations/{activationId}`; only ACTIVE permits reading
 version selects the first suitable registry's current latest and pins it for that
 activation. Reuse a key only for an identical original request.
 
+The OpenAPI document is available at `/q/openapi`, and Swagger UI is available at
+`/swagger-ui` in development and packaged applications. Each build also writes
+`openapi.yaml` and `openapi.json` to `build/generated/openapi`.
+
 ## Verification
 
 Java 21 and a working Docker/Testcontainers environment are required, including for

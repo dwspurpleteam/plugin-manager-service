@@ -48,6 +48,7 @@ dependencies {
     // Входящие REST-запросы и JSON
     implementation(libs.io.quarkus.quarkus.rest.kotlin)
     implementation(libs.io.quarkus.quarkus.rest.jackson)
+    implementation(libs.io.quarkus.quarkus.smallrye.openapi)
 
     // Исходящие REST-запросы
     implementation(libs.io.quarkus.quarkus.rest.client.jackson)
