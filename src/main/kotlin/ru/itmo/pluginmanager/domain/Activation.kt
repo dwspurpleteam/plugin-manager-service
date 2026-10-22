@@ -48,6 +48,8 @@ data class ActivationRoute(
     val routeId: UUID,
     val activationId: UUID,
     val signalDst: String,
+    val allowedEventTypes: Set<String>?,
+    val allowedEventGroups: Set<String>?,
     val healthcheckUrl: String,
     val mediaTypes: Set<MediaType>,
 )

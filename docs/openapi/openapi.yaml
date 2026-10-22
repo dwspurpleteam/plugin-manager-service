@@ -123,35 +123,31 @@ components:
             $ref: "#/components/schemas/MediaType"
     PluginBackend:
       type: object
-      required:
-      - sdkVersion
-      - healthUrl
-      - events
-      - media
       properties:
-        sdkVersion:
+        sdk-version:
           type: string
-        healthUrl:
+        health-url:
           type: string
         events:
           $ref: "#/components/schemas/PluginEvents"
         media:
           $ref: "#/components/schemas/PluginMedia"
+      required:
+      - events
+      - media
     PluginEvents:
       type: object
-      required:
-      - eventUrl
       properties:
-        eventUrl:
+        event-url:
           type: string
-        availableEventTypes:
+        available-event-types:
           type:
           - array
           - "null"
           uniqueItems: true
           items:
             type: string
-        availableEventGroups:
+        available-event-groups:
           type:
           - array
           - "null"
@@ -160,30 +156,19 @@ components:
             type: string
     PluginFrontend:
       type: object
-      required:
-      - sdkVersion
-      - urlWeb
       properties:
-        sdkVersion:
+        sdk-version:
           type: string
-        urlWeb:
+        url-web:
           type: string
     PluginManifest:
       type: object
-      required:
-      - manifestVersion
-      - pluginId
-      - pluginVersion
-      - name
-      - description
-      - frontend
-      - backend
       properties:
-        manifestVersion:
+        manifest-version:
           type: string
-        pluginId:
+        plugin-id:
           type: string
-        pluginVersion:
+        plugin-version:
           type: string
         name:
           type: string
@@ -193,6 +178,11 @@ components:
           $ref: "#/components/schemas/PluginFrontend"
         backend:
           $ref: "#/components/schemas/PluginBackend"
+      required:
+      - name
+      - description
+      - frontend
+      - backend
     PluginMedia:
       type: object
       required:

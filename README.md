@@ -26,6 +26,13 @@ policies can be set in `application.properties`, via Java system properties befo
 Timeout, concurrency, retry, TTL and retention defaults are listed in the contract
 document. Startup rejects invalid limits and incompatible lease/deadline settings.
 
+The `local` profile connects to the configured PostgreSQL data source at
+`localhost:5432/plugin_manager` with the dedicated application and migration roles:
+
+```shell
+./gradlew quarkusDev -Dquarkus.profile=local
+```
+
 ```shell
 ./gradlew assemble
 java -Dplugin-manager.registries.example-registry.url=https://registry.example.com \

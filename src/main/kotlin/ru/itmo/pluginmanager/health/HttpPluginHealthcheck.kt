@@ -5,6 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.ProcessingException
 import jakarta.ws.rs.core.Response
 import kotlinx.coroutines.withTimeoutOrNull
+import org.jboss.logging.Logger
 import ru.itmo.pluginmanager.config.PluginManagerConfig
 import ru.itmo.pluginmanager.domain.validateHttpUrl
 import java.net.URI
@@ -13,6 +14,8 @@ import kotlin.time.Duration.Companion.milliseconds
 
 @ApplicationScoped
 class HttpPluginHealthcheck(private val config: PluginManagerConfig) : PluginHealthcheck {
+    private val logger = Logger.getLogger(javaClass)
+
     override suspend fun check(url: String): Boolean {
         validateHttpUrl(url)
         return try {
@@ -25,7 +28,8 @@ class HttpPluginHealthcheck(private val config: PluginManagerConfig) : PluginHea
                         client.probe().use { it.status == Response.Status.OK.statusCode }
                     }
             } ?: false
-        } catch (_: ProcessingException) {
+        } catch (exception: ProcessingException) {
+            logger.errorf(exception, "Plugin status check failed: healthcheckUrl=%s", url)
             false
         }
     }

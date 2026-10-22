@@ -14,18 +14,18 @@ import ru.itmo.pluginmanager.persistence.ActivationStore
 import java.util.UUID
 
 @ApplicationScoped
-class DefaultActivationService(private val store: ActivationStore, private val config: PluginManagerConfig) :
+class ActivationServiceImpl(private val store: ActivationStore, private val config: PluginManagerConfig) :
     ActivationService {
     override suspend fun register(request: ActivationRequest): RegistrationResult {
-        listOf(
+        listOfNotNull(
             request.callId,
             request.pluginId,
             request.requestedBy,
             request.idempotencyKey,
+            request.pluginVersion,
+            request.pluginRegistryId,
         ).forEach(::validateIdentifier)
-        request.pluginVersion?.let(::validateIdentifier)
         request.pluginRegistryId?.let {
-            validateIdentifier(it)
             if (it !in config.registries()) throw PluginManagerException(ErrorCode.UNKNOWN_REGISTRY, "Unknown registry")
         }
         return store.register(request)

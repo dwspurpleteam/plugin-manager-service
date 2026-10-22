@@ -22,7 +22,7 @@ interface RegistryHttpEndpoint : AutoCloseable {
     ): RestResponse<String>
 
     @GET
-    @Path("/v1/plugins/{id}/versions/{version}")
+    @Path("/v1/plugins/{id}/versions/{version}/manifest")
     suspend fun manifest(
         @PathParam("id") id: String,
         @PathParam("version") version: String,

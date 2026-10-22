@@ -5,8 +5,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import ru.itmo.pluginmanager.activation.ActivationProcessor
-import ru.itmo.pluginmanager.health.HealthcheckProcessor
 import ru.itmo.pluginmanager.persistence.MaintenanceStore
 import ru.itmo.pluginmanager.persistence.WorkStore
 import ru.itmo.pluginmanager.support.MemoryStores
@@ -34,13 +32,15 @@ class BackgroundContractTest {
                 return List(limit) { memory.lease.copy(kind = kind) }
             }
         }
-        val activation = object : ActivationProcessor {
+        val activation = object : WorkerProcessor {
+            override val kind = WorkKind.ACTIVATE
             override suspend fun process(lease: WorkLease) {
                 delay(10)
                 processed.incrementAndGet()
             }
         }
-        val health = object : HealthcheckProcessor {
+        val health = object : WorkerProcessor {
+            override val kind = WorkKind.HEALTHCHECK
             override suspend fun process(lease: WorkLease) {
                 processed.incrementAndGet()
             }
@@ -58,8 +58,7 @@ class BackgroundContractTest {
         val jobs: BackgroundJobs = component(
             "worker.DefaultBackgroundJobs",
             work,
-            activation,
-            health,
+            mutableListOf(activation, health),
             maintenance,
             policy(mapOf("plugin-manager.activation.concurrency" to "2", "plugin-manager.health.concurrency" to "2")),
             Clock.systemUTC(),

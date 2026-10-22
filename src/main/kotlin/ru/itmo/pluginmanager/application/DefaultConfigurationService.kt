@@ -47,6 +47,7 @@ class DefaultConfigurationService(
 
     private suspend fun search(ids: List<String>, pluginId: String, version: String?): PluginSelection =
         coroutineScope {
+            // todo почему канал не закрывается?
             val results = Channel<Result<PluginSelection>>(ids.size)
             val jobs = ids.map { id ->
                 launch {
@@ -67,6 +68,7 @@ class DefaultConfigurationService(
                     jobs.forEach { it.cancel() }
                     return@coroutineScope selection
                 }
+                // todo cce не упадет?
                 errors.add((result.exceptionOrNull() as PluginManagerException).code)
             }
             val code = when {

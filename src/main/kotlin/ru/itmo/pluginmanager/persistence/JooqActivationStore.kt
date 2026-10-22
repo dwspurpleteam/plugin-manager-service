@@ -27,8 +27,10 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
     override suspend fun register(request: ActivationRequest): RegistrationResult = transaction.transaction { dsl ->
         val id = UUID.randomUUID()
         val inserted = dsl.insertInto(PLUGIN_ACTIVATION)
-            .set(PLUGIN_ACTIVATION.ACTIVATION_ID, id).set(PLUGIN_ACTIVATION.CALL_ID, request.callId)
-            .set(PLUGIN_ACTIVATION.PLUGIN_ID, request.pluginId).set(PLUGIN_ACTIVATION.REQUESTED_BY, request.requestedBy)
+            .set(PLUGIN_ACTIVATION.ACTIVATION_ID, id)
+            .set(PLUGIN_ACTIVATION.CALL_ID, request.callId)
+            .set(PLUGIN_ACTIVATION.PLUGIN_ID, request.pluginId)
+            .set(PLUGIN_ACTIVATION.REQUESTED_BY, request.requestedBy)
             .set(PLUGIN_ACTIVATION.IDEMPOTENCY_KEY, request.idempotencyKey)
             .set(PLUGIN_ACTIVATION.REQUESTED_VERSION, request.pluginVersion)
             .set(PLUGIN_ACTIVATION.REQUESTED_REGISTRY_ID, request.pluginRegistryId)
@@ -40,17 +42,21 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
             if (old.request != request) storageError(ErrorCode.IDEMPOTENCY_CONFLICT)
             RegistrationResult(old.activationId, false)
         } else {
-            dsl.insertInto(ACTIVATION_STATE_HISTORY).set(ACTIVATION_STATE_HISTORY.HISTORY_ID, UUID.randomUUID())
-                .set(ACTIVATION_STATE_HISTORY.ACTIVATION_ID, id).set(ACTIVATION_STATE_HISTORY.REVISION, 1L)
+            dsl.insertInto(ACTIVATION_STATE_HISTORY)
+                .set(ACTIVATION_STATE_HISTORY.HISTORY_ID, UUID.randomUUID())
+                .set(ACTIVATION_STATE_HISTORY.ACTIVATION_ID, id)
+                .set(ACTIVATION_STATE_HISTORY.REVISION, 1L)
                 .set(ACTIVATION_STATE_HISTORY.TO_STATE, DatabaseActivationState.ACTIVATING).awaitSingle()
-            dsl.insertInto(ACTIVATION_WORK).set(ACTIVATION_WORK.ACTIVATION_ID, id)
+            dsl.insertInto(ACTIVATION_WORK)
+                .set(ACTIVATION_WORK.ACTIVATION_ID, id)
                 .set(ACTIVATION_WORK.KIND, DatabaseActivationWorkKind.ACTIVATE).awaitSingle()
             RegistrationResult(id, true)
         }
     }
 
     override suspend fun find(activationId: UUID) = transaction.transaction { dsl ->
-        dsl.selectFrom(PLUGIN_ACTIVATION).where(PLUGIN_ACTIVATION.ACTIVATION_ID.eq(activationId))
+        dsl.selectFrom(PLUGIN_ACTIVATION)
+            .where(PLUGIN_ACTIVATION.ACTIVATION_ID.eq(activationId))
             .awaitFirstOrNull()?.toDomain()
     }
 
@@ -59,15 +65,15 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
     override suspend fun pinSelection(lease: WorkLease, selection: PluginSelection) {
         transaction.transaction { dsl ->
             val activation = dsl.lockActivation(lease).toDomain()
-            if (activation.state != ActivationState.ACTIVATING ||
-                selection.pluginId != activation.request.pluginId
-            ) {
+            if (activation.state != ActivationState.ACTIVATING || selection.pluginId != activation.request.pluginId) {
                 storageError()
             }
             if (activation.selection != null && activation.selection != selection) storageError()
-            dsl.update(PLUGIN_ACTIVATION).set(PLUGIN_ACTIVATION.RESOLVED_VERSION, selection.pluginVersion)
+            dsl.update(PLUGIN_ACTIVATION)
+                .set(PLUGIN_ACTIVATION.RESOLVED_VERSION, selection.pluginVersion)
                 .set(PLUGIN_ACTIVATION.RESOLVED_REGISTRY_ID, selection.registryId)
-                .where(PLUGIN_ACTIVATION.ACTIVATION_ID.eq(lease.activationId)).awaitSingle()
+                .where(PLUGIN_ACTIVATION.ACTIVATION_ID.eq(lease.activationId))
+                .awaitSingle()
         }
     }
 
@@ -80,10 +86,10 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
                 storageError()
             }
             dsl.insertInto(ACTIVATION_ROUTE).set(ACTIVATION_ROUTE.ROUTE_ID, route.routeId)
-                .set(
-                    ACTIVATION_ROUTE.ACTIVATION_ID,
-                    lease.activationId,
-                ).set(ACTIVATION_ROUTE.SIGNAL_DST, route.signalDst)
+                .set(ACTIVATION_ROUTE.ACTIVATION_ID, lease.activationId)
+                .set(ACTIVATION_ROUTE.SIGNAL_DST, route.signalDst)
+                .set(ACTIVATION_ROUTE.ALLOWED_EVENT_TYPES, route.allowedEventTypes?.sorted()?.toTypedArray())
+                .set(ACTIVATION_ROUTE.ALLOWED_EVENT_GROUPS, route.allowedEventGroups?.sorted()?.toTypedArray())
                 .set(ACTIVATION_ROUTE.HEALTHCHECK_URL, route.healthcheckUrl)
                 .set(
                     ACTIVATION_ROUTE.MEDIA_TYPES,
@@ -104,12 +110,16 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
                 storageError()
             }
             dsl.changeState(activation, ActivationState.ACTIVE, null)
-            dsl.update(ACTIVATION_WORK).set(ACTIVATION_WORK.KIND, DatabaseActivationWorkKind.HEALTHCHECK)
+            dsl.update(ACTIVATION_WORK)
+                .set(ACTIVATION_WORK.KIND, DatabaseActivationWorkKind.HEALTHCHECK)
                 .set(ACTIVATION_WORK.NEXT_RUN_AT, nextHealthcheckAt.atOffset(ZoneOffset.UTC))
-                .set(ACTIVATION_WORK.ATTEMPT_COUNT, 0).set(ACTIVATION_WORK.CONSECUTIVE_HEALTH_FAILURES, 0)
-                .setNull(ACTIVATION_WORK.LEASE_TOKEN).setNull(ACTIVATION_WORK.LEASE_UNTIL)
+                .set(ACTIVATION_WORK.ATTEMPT_COUNT, 0)
+                .set(ACTIVATION_WORK.CONSECUTIVE_HEALTH_FAILURES, 0)
+                .setNull(ACTIVATION_WORK.LEASE_TOKEN)
+                .setNull(ACTIVATION_WORK.LEASE_UNTIL)
                 .setNull(ACTIVATION_WORK.LAST_ERROR_CODE)
-                .where(ACTIVATION_WORK.ACTIVATION_ID.eq(lease.activationId)).awaitSingle()
+                .where(ACTIVATION_WORK.ACTIVATION_ID.eq(lease.activationId))
+                .awaitSingle()
         }
     }
 
@@ -117,7 +127,9 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
         transaction.transaction { dsl ->
             val activation = dsl.lockActivation(lease)
             dsl.changeState(activation, ActivationState.FAILED, reason)
-            dsl.deleteFrom(ACTIVATION_WORK).where(ACTIVATION_WORK.ACTIVATION_ID.eq(lease.activationId)).awaitSingle()
+            dsl.deleteFrom(ACTIVATION_WORK)
+                .where(ACTIVATION_WORK.ACTIVATION_ID.eq(lease.activationId))
+                .awaitSingle()
         }
     }
 }

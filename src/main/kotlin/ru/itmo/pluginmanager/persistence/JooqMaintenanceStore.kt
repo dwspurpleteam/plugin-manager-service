@@ -11,25 +11,23 @@ class JooqMaintenanceStore(private val transaction: JooqTransaction) : Maintenan
     override suspend fun deleteHistoryBefore(cutoff: Instant, limit: Int): Int {
         require(limit > 0)
         return transaction.transaction { dsl ->
-            val locked = dsl.resultQuery(
-                "SELECT pg_try_advisory_xact_lock(712904821)",
-            ).awaitSingle().get(0, Boolean::class.java)
-            if (!locked) {
-                0
-            } else {
-                dsl.query(
-                    """
-                DELETE FROM activation_state_history WHERE history_id IN (
-                    SELECT h.history_id FROM activation_state_history h
-                    JOIN plugin_activation a ON a.activation_id = h.activation_id
-                    WHERE h.changed_at < ? AND h.revision < a.state_revision
-                    ORDER BY h.changed_at, h.history_id LIMIT ?
-                )
-                    """.trimIndent(),
-                    cutoff.atOffset(ZoneOffset.UTC),
-                    limit,
-                ).awaitSingle()
-            }
+            val locked = dsl.resultQuery("SELECT pg_try_advisory_xact_lock($HISTORY_CLEANUP_ADVISORY_LOCK_KEY)")
+                .awaitSingle()
+                .get(0, Boolean::class.java)
+            if (!locked) return@transaction 0
+
+            dsl.query(
+                """
+            DELETE FROM activation_state_history WHERE history_id IN (
+                SELECT h.history_id FROM activation_state_history h
+                JOIN plugin_activation a ON a.activation_id = h.activation_id
+                WHERE h.changed_at < ? AND h.revision < a.state_revision
+                ORDER BY h.changed_at, h.history_id LIMIT ?
+            )
+                """.trimIndent(),
+                cutoff.atOffset(ZoneOffset.UTC),
+                limit,
+            ).awaitSingle()
         }
     }
 

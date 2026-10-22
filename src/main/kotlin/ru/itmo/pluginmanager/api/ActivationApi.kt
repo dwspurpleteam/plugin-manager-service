@@ -39,4 +39,6 @@ interface ActivationApi {
     suspend fun mediaTypes(
         @PathParam("activationId") activationId: UUID,
     ): MediaTypesResponse
+
+    // todo добавить потом веб сокет соединение для трансляции статуса плагина
 }

@@ -2,6 +2,7 @@ package ru.itmo.pluginmanager.persistence
 
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
+import org.jboss.logging.Logger
 import org.jooq.DSLContext
 import ru.itmo.pluginmanager.domain.Activation
 import ru.itmo.pluginmanager.domain.ActivationRequest
@@ -22,6 +23,8 @@ import java.time.ZoneOffset
 import java.util.UUID
 import ru.itmo.pluginmanager.jooq.generated.enums.ActivationState as DatabaseActivationState
 import ru.itmo.pluginmanager.jooq.generated.enums.ActivationWorkKind as DatabaseActivationWorkKind
+
+private val logger = Logger.getLogger("ru.itmo.pluginmanager.persistence.ActivationState")
 
 internal fun storageError(code: ErrorCode = ErrorCode.INTERNAL_ERROR): Nothing =
     throw PluginManagerException(code, "Activation storage operation rejected")
@@ -63,6 +66,13 @@ internal suspend fun DSLContext.changeState(
         .set(ACTIVATION_STATE_HISTORY.TO_STATE, databaseState)
         .set(ACTIVATION_STATE_HISTORY.CHANGED_AT, changed)
         .set(ACTIVATION_STATE_HISTORY.REASON_CODE, reason?.name).awaitSingle()
+    if (state == ActivationState.FAILED) {
+        logger.errorf(
+            "Activation transitioned to FAILED: activationId=%s, failureCode=%s",
+            record.activationId,
+            reason,
+        )
+    }
 }
 
 internal fun PluginActivationRecord.toDomain(): Activation = Activation(
@@ -82,6 +92,8 @@ internal suspend fun DSLContext.readRoute(id: UUID): ActivationRoute? =
             it.routeId,
             id,
             it.signalDst,
+            it.allowedEventTypes?.toSet(),
+            it.allowedEventGroups?.toSet(),
             it.healthcheckUrl,
             it.mediaTypes.map { mediaType -> MediaType.valueOf(mediaType.name) }.toSet(),
         )

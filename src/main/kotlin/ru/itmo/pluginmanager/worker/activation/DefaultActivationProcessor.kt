@@ -1,4 +1,4 @@
-package ru.itmo.pluginmanager.activation
+package ru.itmo.pluginmanager.worker.activation
 
 import jakarta.enterprise.context.ApplicationScoped
 import kotlinx.coroutines.CancellationException
@@ -12,7 +12,9 @@ import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.health.PluginHealthcheck
 import ru.itmo.pluginmanager.persistence.ActivationStore
 import ru.itmo.pluginmanager.persistence.WorkStore
+import ru.itmo.pluginmanager.worker.WorkKind
 import ru.itmo.pluginmanager.worker.WorkLease
+import ru.itmo.pluginmanager.worker.WorkerProcessor
 import java.time.Clock
 import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
@@ -25,7 +27,9 @@ class DefaultActivationProcessor(
     private val health: PluginHealthcheck,
     private val config: PluginManagerConfig,
     private val clock: Clock,
-) : ActivationProcessor {
+) : WorkerProcessor {
+    override val kind = WorkKind.ACTIVATE
+
     override suspend fun process(lease: WorkLease) {
         if (lease.attemptCount > config.activation().attempts()) {
             store.fail(lease, ErrorCode.ACTIVATION_ATTEMPTS_EXHAUSTED)
@@ -57,10 +61,13 @@ class DefaultActivationProcessor(
                 activation.request.pluginRegistryId,
             ).also { store.pinSelection(lease, it) }
             val manifest = configurations.get(selection).manifest
+            val allowedEventTypes = manifest.backend.events.availableEventTypes
             ActivationRoute(
                 UUID.randomUUID(),
                 lease.activationId,
                 manifest.backend.events.eventUrl,
+                allowedEventTypes,
+                manifest.backend.events.availableEventGroups.takeIf { allowedEventTypes == null },
                 manifest.backend.healthUrl,
                 manifest.backend.media.input,
             ).also { store.saveRoute(lease, it) }
@@ -68,8 +75,13 @@ class DefaultActivationProcessor(
         if (!health.check(route.healthcheckUrl)) {
             throw PluginManagerException(ErrorCode.HEALTHCHECK_FAILED, "Activation healthcheck failed")
         }
+        sendInitialActivationMessage(route)
         store.activate(lease, clock.instant().plus(config.health().interval()))
     }
+
+    private fun sendInitialActivationMessage(
+        @Suppress("UNUSED_PARAMETER") route: ActivationRoute,
+    ) = Unit
 
     private suspend fun failedAttempt(lease: WorkLease, code: ErrorCode) {
         val permanent = code in setOf(

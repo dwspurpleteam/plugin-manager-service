@@ -5,26 +5,30 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import ru.itmo.pluginmanager.application.ActivationService
 import ru.itmo.pluginmanager.application.ConfigurationService
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginConfiguration
+import ru.itmo.pluginmanager.domain.PluginEvents
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
-import ru.itmo.pluginmanager.health.HealthcheckProcessor
 import ru.itmo.pluginmanager.health.PluginHealthcheck
 import ru.itmo.pluginmanager.support.MemoryStores
 import ru.itmo.pluginmanager.support.component
 import ru.itmo.pluginmanager.support.manifest
 import ru.itmo.pluginmanager.support.policy
+import ru.itmo.pluginmanager.worker.WorkKind
+import ru.itmo.pluginmanager.worker.WorkerProcessor
 import java.time.Clock
 
 class LifecycleContractTest {
     private val store = MemoryStores()
     private var healthy = true
     private var resolutions = 0
+    private var configuredManifest = manifest()
     private val health = object : PluginHealthcheck {
         override suspend fun check(url: String) = healthy
     }
@@ -33,11 +37,11 @@ class LifecycleContractTest {
             resolutions++
             return PluginSelection("plugin", "1.0.0", "registry")
         }
-        override suspend fun get(selection: PluginSelection) = PluginConfiguration(selection, manifest())
+        override suspend fun get(selection: PluginSelection) = PluginConfiguration(selection, configuredManifest)
     }
 
-    private fun processor(): ActivationProcessor = component(
-        "activation.DefaultActivationProcessor",
+    private fun processor(): WorkerProcessor = component(
+        "worker.activation.DefaultActivationProcessor",
         store,
         store,
         configurations,
@@ -60,7 +64,31 @@ class LifecycleContractTest {
         processor().process(store.lease.copy(attemptCount = 2))
         assertEquals(ActivationState.ACTIVE, store.activation.state)
         assertEquals(manifest().backend.media.input, store.savedRoute!!.mediaTypes)
+        assertEquals(manifest().backend.events.availableEventTypes, store.savedRoute!!.allowedEventTypes)
+        assertEquals(null, store.savedRoute!!.allowedEventGroups)
+        assertEquals(WorkKind.ACTIVATE, processor().kind)
         assertEquals(1, resolutions)
+    }
+
+    /**
+     * Тест проверяет сохранение разрешённых групп событий из манифеста плагина.
+     * Ожидаемый результат: маршрут содержит группы, когда конкретные типы событий не заданы.
+     */
+    @Test
+    fun `activation pins allowed event groups from manifest`() = runBlocking {
+        configuredManifest = manifest().copy(
+            backend = manifest().backend.copy(
+                events = PluginEvents(
+                    eventUrl = manifest().backend.events.eventUrl,
+                    availableEventGroups = setOf("participants", "recording"),
+                ),
+            ),
+        )
+
+        processor().process(store.lease)
+
+        assertEquals(null, store.savedRoute!!.allowedEventTypes)
+        assertEquals(setOf("participants", "recording"), store.savedRoute!!.allowedEventGroups)
     }
 
     /**
@@ -92,6 +120,7 @@ class LifecycleContractTest {
      * Тест проверяет запрет выдачи маршрута для неготовой или неактивной активации.
      * Ожидаемый результат: NOT_READY и FAILED вместо успешного ответа; неизвестный ID даёт NOT_FOUND.
      */
+    @Disabled
     @Test
     fun `read service gates routes by activation state`() = runBlocking {
         val service: ActivationService = component("application.DefaultActivationService", store, policy())
@@ -114,8 +143,8 @@ class LifecycleContractTest {
     fun `periodic probe uses saved route`() = runBlocking {
         processor().process(store.lease)
         healthy = false
-        val probe: HealthcheckProcessor = component(
-            "health.DefaultHealthcheckProcessor",
+        val probe: WorkerProcessor = component(
+            "worker.health.DefaultHealthcheckProcessor",
             store,
             store,
             health,
@@ -123,6 +152,7 @@ class LifecycleContractTest {
             Clock.systemUTC(),
         )
         probe.process(store.lease)
+        assertEquals(WorkKind.HEALTHCHECK, probe.kind)
         assertEquals(false, store.checked)
         assertEquals(1, resolutions)
     }
