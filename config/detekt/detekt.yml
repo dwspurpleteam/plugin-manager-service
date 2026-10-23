@@ -1,0 +1,39 @@
+config:
+  validation: true
+  warningsAsErrors: true
+
+style:
+  MagicNumber:
+    excludes: ['**/test/**', '**/integrationTest/**']
+  WildcardImport:
+    active: true
+    excludeImports: []
+  UnusedImport:
+    active: true
+  UnusedParameter:
+    active: true
+  UnusedPrivateClass:
+    active: true
+  UnusedPrivateFunction:
+    active: true
+  UnusedPrivateProperty:
+    active: true
+  UnusedVariable:
+    active: true
+
+naming:
+  FunctionNaming:
+    excludes: ['**/test/**', '**/integrationTest/**']
+
+potential-bugs:
+  UnsafeCallOnNullableType:
+    excludes: ['**/test/**', '**/integrationTest/**']
+
+ktlint:
+  active: true
+  code_style: ktlint_official
+  NoUnusedImports:
+    active: true
+  NoWildcardImports:
+    active: true
+    packagesToUseImportOnDemandProperty: ''

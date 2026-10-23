@@ -1,0 +1,8 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="plugin-manage-service.main" type="QuarkusRunConfiguration" factoryName="QuarkusRunConfiguration">
+    <module name="plugin-manage-service.main" />
+    <option name="profile" />
+    <option name="programParameters" value="local" />
+    <method v="2" />
+  </configuration>
+</component>
