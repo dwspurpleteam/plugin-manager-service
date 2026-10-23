@@ -9,13 +9,7 @@ class ScheduledJobs(private val jobs: BackgroundJobs) {
         every = "\${plugin-manager.worker.poll-interval}",
         concurrentExecution = Scheduled.ConcurrentExecution.SKIP,
     )
-    suspend fun activate() = jobs.activateDue()
-
-    @Scheduled(
-        every = "\${plugin-manager.worker.poll-interval}",
-        concurrentExecution = Scheduled.ConcurrentExecution.SKIP,
-    )
-    suspend fun healthcheck() = jobs.checkDue()
+    suspend fun activate() = jobs.runTasks()
 
     @Scheduled(every = "\${plugin-manager.cleanup.interval}", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     suspend fun cleanup() = jobs.cleanUp()

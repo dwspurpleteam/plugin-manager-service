@@ -5,9 +5,9 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import ru.itmo.pluginmanager.application.ActivationService
+import ru.itmo.pluginmanager.application.ActivationServiceImpl
 import ru.itmo.pluginmanager.application.ConfigurationService
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
@@ -17,11 +17,12 @@ import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
 import ru.itmo.pluginmanager.health.PluginHealthcheck
 import ru.itmo.pluginmanager.support.MemoryStores
-import ru.itmo.pluginmanager.support.component
 import ru.itmo.pluginmanager.support.manifest
 import ru.itmo.pluginmanager.support.policy
 import ru.itmo.pluginmanager.worker.WorkKind
 import ru.itmo.pluginmanager.worker.WorkerProcessor
+import ru.itmo.pluginmanager.worker.activation.DefaultActivationProcessor
+import ru.itmo.pluginmanager.worker.health.DefaultHealthcheckProcessor
 import java.time.Clock
 
 class LifecycleContractTest {
@@ -40,8 +41,7 @@ class LifecycleContractTest {
         override suspend fun get(selection: PluginSelection) = PluginConfiguration(selection, configuredManifest)
     }
 
-    private fun processor(): WorkerProcessor = component(
-        "worker.activation.DefaultActivationProcessor",
+    private fun processor(): WorkerProcessor = DefaultActivationProcessor(
         store,
         store,
         configurations,
@@ -120,10 +120,9 @@ class LifecycleContractTest {
      * Тест проверяет запрет выдачи маршрута для неготовой или неактивной активации.
      * Ожидаемый результат: NOT_READY и FAILED вместо успешного ответа; неизвестный ID даёт NOT_FOUND.
      */
-    @Disabled
     @Test
     fun `read service gates routes by activation state`() = runBlocking {
-        val service: ActivationService = component("application.DefaultActivationService", store, policy())
+        val service: ActivationService = ActivationServiceImpl(store, policy())
         val pending = assertThrows(PluginManagerException::class.java) {
             runBlocking { service.signalRoute(store.activation.activationId) }
         }
@@ -143,8 +142,7 @@ class LifecycleContractTest {
     fun `periodic probe uses saved route`() = runBlocking {
         processor().process(store.lease)
         healthy = false
-        val probe: WorkerProcessor = component(
-            "worker.health.DefaultHealthcheckProcessor",
+        val probe: WorkerProcessor = DefaultHealthcheckProcessor(
             store,
             store,
             health,

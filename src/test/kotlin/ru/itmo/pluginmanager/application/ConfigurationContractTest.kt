@@ -5,26 +5,16 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
-import ru.itmo.pluginmanager.cache.ManifestCache
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginManifest
-import ru.itmo.pluginmanager.domain.PluginSelection
 import ru.itmo.pluginmanager.registry.PluginRegistry
 import ru.itmo.pluginmanager.registry.RegistryPage
 import ru.itmo.pluginmanager.registry.RegistryPlugin
-import ru.itmo.pluginmanager.support.component
 import ru.itmo.pluginmanager.support.manifest
 import ru.itmo.pluginmanager.support.policy
 
 class ConfigurationContractTest {
-    private val cache = object : ManifestCache {
-        val values = mutableMapOf<PluginSelection, PluginManifest>()
-        override suspend fun get(selection: PluginSelection) = values[selection]
-        override suspend fun put(selection: PluginSelection, manifest: PluginManifest) {
-            values[selection] = manifest
-        }
-    }
 
     private var calls = 0
     private val registry = object : PluginRegistry {
@@ -42,8 +32,7 @@ class ConfigurationContractTest {
         }
     }
 
-    private fun service(): ConfigurationService = component(
-        "application.DefaultConfigurationService",
+    private fun service(): ConfigurationService = DefaultConfigurationService(
         policy(
             mapOf(
                 "plugin-manager.registries.down.url" to "http://localhost:1",
@@ -52,12 +41,11 @@ class ConfigurationContractTest {
             ),
         ),
         registry,
-        cache,
     )
 
     /**
-     * Тест проверяет конкурентный поиск без приоритетов реестров и использование кеша.
-     * Ожидаемый результат: побеждает быстрый реестр, последующее чтение не вызывает реестр.
+     * Тест проверяет конкурентный поиск без приоритетов реестров при недоступности одного из них.
+     * Ожидаемый результат: побеждает быстрый реестр, последующее чтение повторно запрашивает манифест.
      */
     @Test
     fun `first suitable result wins despite unavailable registry`() = runBlocking {
@@ -67,7 +55,7 @@ class ConfigurationContractTest {
         assertEquals("2.0.0", selected.pluginVersion)
         val before = calls
         assertEquals("2.0.0", service.get(selected).manifest.pluginVersion)
-        assertEquals(before, calls)
+        assertEquals(before + 1, calls)
     }
 
     /**

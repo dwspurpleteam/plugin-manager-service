@@ -5,6 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withTimeoutOrNull
 import org.jboss.logging.Logger
@@ -26,22 +27,27 @@ class DefaultBackgroundJobs(
     private val processors = processors.associateBy { it.kind }.also { byKind ->
         check(byKind.size == WorkKind.entries.size) { "Exactly one worker processor must be configured for each kind" }
     }
-    private val activationLock = Mutex()
-    private val healthLock = Mutex()
     private val cleanupLock = Mutex()
     private val logger = Logger.getLogger(javaClass)
     private val instanceId = UUID.randomUUID()
 
-    override suspend fun activateDue() = dispatch(
-        activationLock,
-        WorkKind.ACTIVATE,
-        config.activation().concurrency(),
-    ) {
-        processor(WorkKind.ACTIVATE).process(it)
+    private val workers = WorkKind.entries.associateWith { Mutex() }
+
+    override suspend fun runTasks() {
+        supervisorScope {
+            workers.forEach { (kind, mutex) ->
+                launch {
+                    dispatch(mutex, kind, kind.concurrency()) {
+                        processor(kind).process(it)
+                    }
+                }
+            }
+        }
     }
 
-    override suspend fun checkDue() = dispatch(healthLock, WorkKind.HEALTHCHECK, config.health().concurrency()) {
-        processor(WorkKind.HEALTHCHECK).process(it)
+    private fun WorkKind.concurrency(): Int = when (this) {
+        WorkKind.ACTIVATE -> config.activation().concurrency()
+        WorkKind.HEALTHCHECK -> config.health().concurrency()
     }
 
     private fun processor(kind: WorkKind) = checkNotNull(processors[kind]) { "Worker processor is missing for $kind" }

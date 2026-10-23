@@ -2,7 +2,7 @@ package ru.itmo.pluginmanager.worker
 
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
-import ru.itmo.pluginmanager.support.component
+import ru.itmo.pluginmanager.config.RuntimePolicyValidator
 import ru.itmo.pluginmanager.support.policy
 
 class PolicyContractTest {
@@ -18,7 +18,7 @@ class PolicyContractTest {
             mapOf("plugin-manager.activation.attempts" to "4"),
         )) {
             assertThrows(IllegalArgumentException::class.java) {
-                component<Any>("config.RuntimePolicyValidator", policy(overrides))
+                RuntimePolicyValidator(policy(overrides))
             }
         }
     }

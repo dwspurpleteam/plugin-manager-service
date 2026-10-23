@@ -13,8 +13,8 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import ru.itmo.pluginmanager.database.PostgresTestResource
 import ru.itmo.pluginmanager.domain.PluginManagerException
+import ru.itmo.pluginmanager.health.HttpPluginHealthcheck
 import ru.itmo.pluginmanager.health.PluginHealthcheck
-import ru.itmo.pluginmanager.support.component
 import ru.itmo.pluginmanager.support.manifest
 import ru.itmo.pluginmanager.support.policy
 import java.net.InetSocketAddress
@@ -40,7 +40,7 @@ class HttpContractTest {
 
                 "/v1/plugins/plugin/versions" -> """["1.0.0","0.9.0"]"""
 
-                "/v1/plugins/plugin/versions/1.0.0" -> mapper.writeValueAsString(manifest())
+                "/v1/plugins/plugin/versions/1.0.0/manifest" -> mapper.writeValueAsString(manifest())
 
                 else -> null
             }
@@ -53,7 +53,7 @@ class HttpContractTest {
             val config = policy(
                 mapOf("plugin-manager.registries.test.url" to "http://127.0.0.1:${server.address.port}"),
             )
-            val registry: PluginRegistry = component("registry.HttpPluginRegistry", config, mapper)
+            val registry: PluginRegistry = HttpPluginRegistry(config, mapper)
             assertEquals("1.0.0", registry.plugins("test").items.single().latestVersion)
             assertEquals(listOf("1.0.0", "0.9.0"), registry.versions("test", "plugin"))
             assertEquals(manifest(), registry.manifest("test", "plugin", "1.0.0"))
@@ -84,7 +84,7 @@ class HttpContractTest {
         }
         server.start()
         try {
-            val probe: PluginHealthcheck = component("health.HttpPluginHealthcheck", policy())
+            val probe: PluginHealthcheck = HttpPluginHealthcheck(policy())
             val base = "http://127.0.0.1:${server.address.port}"
             assertEquals(true, probe.check("$base/ok"))
             assertFalse(probe.check("$base/redirect"))

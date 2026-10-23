@@ -8,7 +8,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
-import ru.itmo.pluginmanager.cache.ManifestCache
 import ru.itmo.pluginmanager.config.PluginManagerConfig
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginConfiguration
@@ -20,11 +19,8 @@ import ru.itmo.pluginmanager.registry.PluginRegistry
 import kotlin.time.Duration.Companion.milliseconds
 
 @ApplicationScoped
-class DefaultConfigurationService(
-    private val config: PluginManagerConfig,
-    private val registry: PluginRegistry,
-    private val cache: ManifestCache,
-) : ConfigurationService {
+class DefaultConfigurationService(private val config: PluginManagerConfig, private val registry: PluginRegistry) :
+    ConfigurationService {
     private val permits = Semaphore(config.http().concurrency())
 
     override suspend fun resolve(pluginId: String, pluginVersion: String?, registryId: String?): PluginSelection {
@@ -100,16 +96,11 @@ class DefaultConfigurationService(
         if (selection.registryId !in config.registries()) {
             throw PluginManagerException(ErrorCode.UNKNOWN_REGISTRY, "Unknown registry")
         }
-        val cached = cache.get(selection)
-        if (cached != null && runCatching { validateManifest(selection, cached) }.isSuccess) {
-            return PluginConfiguration(selection, cached)
-        }
         val manifest = permits.withPermit {
             registry.manifest(selection.registryId, selection.pluginId, selection.pluginVersion)
         }
             ?: throw PluginManagerException(ErrorCode.PLUGIN_NOT_FOUND, "Plugin not found")
         validateManifest(selection, manifest)
-        cache.put(selection, manifest)
         return PluginConfiguration(selection, manifest)
     }
 }

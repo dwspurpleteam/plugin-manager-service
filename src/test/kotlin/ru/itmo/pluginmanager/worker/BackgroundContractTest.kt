@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test
 import ru.itmo.pluginmanager.persistence.MaintenanceStore
 import ru.itmo.pluginmanager.persistence.WorkStore
 import ru.itmo.pluginmanager.support.MemoryStores
-import ru.itmo.pluginmanager.support.component
 import ru.itmo.pluginmanager.support.policy
 import java.time.Clock
 import java.time.Duration
@@ -55,16 +54,14 @@ class BackgroundContractTest {
                 return 0
             }
         }
-        val jobs: BackgroundJobs = component(
-            "worker.DefaultBackgroundJobs",
+        val jobs: BackgroundJobs = DefaultBackgroundJobs(
             work,
             mutableListOf(activation, health),
             maintenance,
             policy(mapOf("plugin-manager.activation.concurrency" to "2", "plugin-manager.health.concurrency" to "2")),
             Clock.systemUTC(),
         )
-        jobs.activateDue()
-        jobs.checkDue()
+        jobs.runTasks()
         jobs.cleanUp()
         assertEquals(4, processed.get())
         assertTrue(history)

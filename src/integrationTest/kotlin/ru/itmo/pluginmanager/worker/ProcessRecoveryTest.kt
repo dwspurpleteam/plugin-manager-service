@@ -82,7 +82,15 @@ class ProcessRecoveryTest {
                 .header("Content-Type", "application/json")
                 .POST(
                     HttpRequest.BodyPublishers.ofString(
-                        """{"callId":"recovery","pluginId":"plugin","requestedBy":"user","idempotencyKey":"key"}""",
+                        """
+                        {
+                          "callId":"recovery",
+                          "pluginId":"plugin",
+                          "requestedBy":"user",
+                          "idempotencyKey":"key",
+                          "pluginRegistryId":"recovery"
+                        }
+                        """.trimIndent(),
                     ),
                 ).build()
             val created = http.send(request, HttpResponse.BodyHandlers.ofString())

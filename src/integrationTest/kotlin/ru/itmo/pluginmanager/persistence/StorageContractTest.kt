@@ -27,7 +27,6 @@ import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.MediaType
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
-import ru.itmo.pluginmanager.support.component
 import ru.itmo.pluginmanager.worker.WorkKind
 import java.time.Duration
 import java.time.Instant
@@ -39,11 +38,11 @@ class StorageContractTest {
     @Inject
     lateinit var transaction: JooqTransaction
 
-    private fun storage(): ActivationStore = component("persistence.JooqActivationStore", transaction)
+    private fun storage(): ActivationStore = JooqActivationStore(transaction)
 
-    private fun work(): WorkStore = component("persistence.JooqWorkStore", transaction)
+    private fun work(): WorkStore = JooqWorkStore(transaction)
 
-    private fun maintenance(): MaintenanceStore = component("persistence.JooqMaintenanceStore", transaction)
+    private fun maintenance(): MaintenanceStore = JooqMaintenanceStore(transaction)
 
     private fun request() = ActivationRequest(UUID.randomUUID().toString(), "plugin", "user", "key")
 
@@ -154,11 +153,13 @@ class StorageContractTest {
         store.saveRoute(
             lease,
             ActivationRoute(
-                UUID.randomUUID(),
-                id,
-                "https://example.com",
-                "https://example.com/health",
-                setOf(MediaType.AUDIO),
+                routeId = UUID.randomUUID(),
+                activationId = id,
+                signalDst = "https://example.com",
+                allowedEventTypes = null,
+                allowedEventGroups = null,
+                healthcheckUrl = "https://example.com/health",
+                mediaTypes = setOf(MediaType.AUDIO),
             ),
         )
         store.activate(lease, Instant.EPOCH)
@@ -191,7 +192,15 @@ class StorageContractTest {
         store.pinSelection(lease, PluginSelection("plugin", "1", "registry"))
         store.saveRoute(
             lease,
-            ActivationRoute(UUID.randomUUID(), id, "https://example.com", "https://example.com/health", emptySet()),
+            ActivationRoute(
+                routeId = UUID.randomUUID(),
+                activationId = id,
+                signalDst = "https://example.com",
+                allowedEventTypes = null,
+                allowedEventGroups = null,
+                healthcheckUrl = "https://example.com/health",
+                mediaTypes = emptySet(),
+            ),
         )
         store.activate(lease, Instant.EPOCH)
         assertEquals(0, maintenance().deleteInactiveRoutes(100))
