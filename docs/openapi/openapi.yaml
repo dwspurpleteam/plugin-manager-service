@@ -1,0 +1,388 @@
+---
+openapi: 3.1.0
+components:
+  schemas:
+    ActivationResponse:
+      type: object
+      required:
+      - activationId
+      - callId
+      - pluginId
+      - requestedVersion
+      - requestedRegistryId
+      - requestedBy
+      - pluginVersion
+      - registryId
+      - state
+      - stateChangedAt
+      - failureCode
+      properties:
+        activationId:
+          $ref: "#/components/schemas/UUID"
+        callId:
+          type: string
+        pluginId:
+          type: string
+        requestedVersion:
+          type:
+          - string
+          - "null"
+        requestedRegistryId:
+          type:
+          - string
+          - "null"
+        requestedBy:
+          type: string
+        pluginVersion:
+          type:
+          - string
+          - "null"
+        registryId:
+          type:
+          - string
+          - "null"
+        state:
+          $ref: "#/components/schemas/ActivationState"
+        stateChangedAt:
+          $ref: "#/components/schemas/Instant"
+        failureCode:
+          anyOf:
+          - $ref: "#/components/schemas/ErrorCode"
+          - type: "null"
+    ActivationState:
+      type: string
+      enum:
+      - ACTIVATING
+      - ACTIVE
+      - FAILED
+      - DEGRADED
+      - SUSPENDING
+      - SUSPENDED
+      - RESUMING
+      - STOPPING
+      - STOPPED
+    ConfigurationResponse:
+      type: object
+      required:
+      - pluginId
+      - pluginVersion
+      - registryId
+      - manifest
+      properties:
+        pluginId:
+          type: string
+        pluginVersion:
+          type: string
+        registryId:
+          type: string
+        manifest:
+          $ref: "#/components/schemas/PluginManifest"
+    ErrorCode:
+      type: string
+      enum:
+      - INVALID_REQUEST
+      - UNKNOWN_REGISTRY
+      - PLUGIN_NOT_FOUND
+      - ACTIVATION_NOT_FOUND
+      - IDEMPOTENCY_CONFLICT
+      - ACTIVATION_NOT_READY
+      - ACTIVATION_FAILED
+      - ACTIVATION_NOT_ACTIVE
+      - REGISTRY_UNAVAILABLE
+      - REGISTRY_INVALID_RESPONSE
+      - INVALID_MANIFEST
+      - HEALTHCHECK_FAILED
+      - ACTIVATION_ATTEMPTS_EXHAUSTED
+      - LEASE_LOST
+      - DATABASE_UNAVAILABLE
+      - INTERNAL_ERROR
+    Instant:
+      type: string
+      format: date-time
+      examples:
+      - 2022-03-10T16:15:50Z
+    MediaType:
+      type: string
+      enum:
+      - AUDIO
+      - VIDEO
+      - SCREEN_SHARE
+      - SCREEN_SHARE_AUDIO
+    MediaTypesResponse:
+      type: object
+      required:
+      - activationId
+      - mediaTypes
+      properties:
+        activationId:
+          $ref: "#/components/schemas/UUID"
+        mediaTypes:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/MediaType"
+    PluginBackend:
+      type: object
+      properties:
+        sdk-version:
+          type: string
+        health-url:
+          type: string
+        events:
+          $ref: "#/components/schemas/PluginEvents"
+        media:
+          $ref: "#/components/schemas/PluginMedia"
+      required:
+      - events
+      - media
+    PluginEvents:
+      type: object
+      properties:
+        event-url:
+          type: string
+        available-event-types:
+          type:
+          - array
+          - "null"
+          uniqueItems: true
+          items:
+            type: string
+        available-event-groups:
+          type:
+          - array
+          - "null"
+          uniqueItems: true
+          items:
+            type: string
+    PluginFrontend:
+      type: object
+      properties:
+        sdk-version:
+          type: string
+        url-web:
+          type: string
+    PluginManifest:
+      type: object
+      properties:
+        manifest-version:
+          type: string
+        plugin-id:
+          type: string
+        plugin-version:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        frontend:
+          $ref: "#/components/schemas/PluginFrontend"
+        backend:
+          $ref: "#/components/schemas/PluginBackend"
+      required:
+      - name
+      - description
+      - frontend
+      - backend
+    PluginMedia:
+      type: object
+      required:
+      - input
+      - output
+      properties:
+        input:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/MediaType"
+        output:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/MediaType"
+    RegisterActivationRequest:
+      type: object
+      required:
+      - callId
+      - pluginId
+      - requestedBy
+      - idempotencyKey
+      properties:
+        callId:
+          type: string
+        pluginId:
+          type: string
+        requestedBy:
+          type: string
+        idempotencyKey:
+          type: string
+        pluginVersion:
+          type:
+          - string
+          - "null"
+        pluginRegistryId:
+          type:
+          - string
+          - "null"
+    SignalRouteResponse:
+      type: object
+      required:
+      - activationId
+      - routeId
+      - pluginId
+      - pluginVersion
+      - registryId
+      - signalDst
+      properties:
+        activationId:
+          $ref: "#/components/schemas/UUID"
+        routeId:
+          $ref: "#/components/schemas/UUID"
+        pluginId:
+          type: string
+        pluginVersion:
+          type: string
+        registryId:
+          type: string
+        signalDst:
+          type: string
+    UUID:
+      type: string
+      format: uuid
+      pattern: "[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"
+paths:
+  /v1/activations:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterActivationRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {}
+        "400":
+          description: Bad Request
+      summary: Register
+      tags:
+      - Activation Resource
+  /v1/activations/{activationId}:
+    get:
+      parameters:
+      - name: activationId
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivationResponse"
+      summary: Get
+      tags:
+      - Activation Resource
+  /v1/activations/{activationId}/media-types:
+    get:
+      parameters:
+      - name: activationId
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaTypesResponse"
+      summary: Media Types
+      tags:
+      - Activation Resource
+  /v1/activations/{activationId}/signal-route:
+    get:
+      parameters:
+      - name: activationId
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/UUID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignalRouteResponse"
+      summary: Signal Route
+      tags:
+      - Activation Resource
+  /v1/plugins/{pluginId}/configuration:
+    get:
+      parameters:
+      - name: pluginId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: pluginRegistryId
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigurationResponse"
+      summary: Latest
+      tags:
+      - Configuration Resource
+  /v1/plugins/{pluginId}/versions/{version}/configuration:
+    get:
+      parameters:
+      - name: pluginId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: pluginRegistryId
+        in: query
+        schema:
+          type:
+          - string
+          - "null"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigurationResponse"
+      summary: Version
+      tags:
+      - Configuration Resource
+info:
+  title: plugin-manage-service API
+  version: 1.0.0-SNAPSHOT
+servers:
+- url: http://localhost:8080
+  description: Auto generated value
+- url: http://0.0.0.0:8080
+  description: Auto generated value

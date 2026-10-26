@@ -1,20 +1,29 @@
 [versions]
+dev-detekt-version = "2.0.0-alpha.6"
 io-github-mvettosi-tomlify-version = "1.0.0"
+io-quarkus-platform-version = "3.40.1"
+org-jetbrains-kotlin-version = "2.4.10"
 org-jooq-jooq-version = "3.21.9"
 org-jooq-jooq-kotlin-version = "3.21.9"
 org-jooq-jooq-kotlin-coroutines-version = "3.21.9"
 org-postgresql-r2dbc-postgresql-version = "1.1.3.RELEASE"
 io-r2dbc-r2dbc-pool-version = "1.0.2.RELEASE"
+org-slf4j-version = "2.0.18"
 
 [bundles]
 
 [libraries]
+dev-detekt-rules-ktlint-wrapper = { group = "dev.detekt", name = "detekt-rules-ktlint-wrapper", version.ref = "dev-detekt-version" }
+io-quarkus-platform-quarkus-bom = { group = "io.quarkus.platform", name = "quarkus-bom", version.ref = "io-quarkus-platform-version" }
 io-quarkus-quarkus-kotlin = { group = "io.quarkus", name = "quarkus-kotlin" }
 org-jetbrains-kotlin-kotlin-stdlib-jdk8 = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8" }
 io-quarkus-quarkus-arc = { group = "io.quarkus", name = "quarkus-arc" }
 io-quarkus-quarkus-rest-kotlin = { group = "io.quarkus", name = "quarkus-rest-kotlin" }
 io-quarkus-quarkus-rest-jackson = { group = "io.quarkus", name = "quarkus-rest-jackson" }
 io-quarkus-quarkus-rest-client-jackson = { group = "io.quarkus", name = "quarkus-rest-client-jackson" }
+io-quarkus-quarkus-smallrye-openapi = { group = "io.quarkus", name = "quarkus-smallrye-openapi" }
+io-quarkus-quarkus-redis-client = { group = "io.quarkus", name = "quarkus-redis-client" }
+com-fasterxml-jackson-module-kotlin = { group = "com.fasterxml.jackson.module", name = "jackson-module-kotlin" }
 io-quarkus-quarkus-grpc = { group = "io.quarkus", name = "quarkus-grpc" }
 io-smallrye-reactive-mutiny-kotlin = { group = "io.smallrye.reactive", name = "mutiny-kotlin" }
 io-quarkus-quarkus-flyway = { group = "io.quarkus", name = "quarkus-flyway" }
@@ -23,6 +32,13 @@ io-quarkus-quarkus-quartz = { group = "io.quarkus", name = "quarkus-quartz" }
 org-jooq-jooq = { group = "org.jooq", name = "jooq", version.ref = "org-jooq-jooq-version" }
 org-jooq-jooq-kotlin = { group = "org.jooq", name = "jooq-kotlin", version.ref = "org-jooq-jooq-kotlin-version" }
 org-jooq-jooq-kotlin-coroutines = { group = "org.jooq", name = "jooq-kotlin-coroutines", version.ref = "org-jooq-jooq-kotlin-coroutines-version" }
+org-jooq-jooq-codegen = { group = "org.jooq", name = "jooq-codegen", version.ref = "org-jooq-jooq-version" }
+org-flywaydb-flyway-core = { group = "org.flywaydb", name = "flyway-core" }
+org-flywaydb-flyway-database-postgresql = { group = "org.flywaydb", name = "flyway-database-postgresql" }
+org-postgresql-postgresql = { group = "org.postgresql", name = "postgresql" }
+org-testcontainers-testcontainers-postgresql = { group = "org.testcontainers", name = "testcontainers-postgresql" }
+org-testcontainers-testcontainers = { group = "org.testcontainers", name = "testcontainers" }
+org-slf4j-slf4j-simple = { group = "org.slf4j", name = "slf4j-simple", version.ref = "org-slf4j-version" }
 org-postgresql-r2dbc-postgresql = { group = "org.postgresql", name = "r2dbc-postgresql", version.ref = "org-postgresql-r2dbc-postgresql-version" }
 io-r2dbc-r2dbc-pool = { group = "io.r2dbc", name = "r2dbc-pool", version.ref = "io-r2dbc-r2dbc-pool-version" }
 org-jetbrains-kotlinx-kotlinx-coroutines-reactive = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-reactive" }
@@ -30,4 +46,8 @@ io-quarkus-quarkus-junit = { group = "io.quarkus", name = "quarkus-junit" }
 io-rest-assured-rest-assured = { group = "io.rest-assured", name = "rest-assured" }
 
 [plugins]
+dev-detekt = { id = "dev.detekt", version.ref = "dev-detekt-version" }
 io-github-mvettosi-tomlify = { id = "io.github.mvettosi.tomlify", version.ref = "io-github-mvettosi-tomlify-version" }
+io-quarkus = { id = "io.quarkus", version.ref = "io-quarkus-platform-version" }
+org-jetbrains-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "org-jetbrains-kotlin-version" }
+org-jetbrains-kotlin-plugin-allopen = { id = "org.jetbrains.kotlin.plugin.allopen", version.ref = "org-jetbrains-kotlin-version" }
