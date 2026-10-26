@@ -18,6 +18,9 @@ interface ActivationStore {
     /** Читает активацию либо возвращает null. */
     suspend fun find(activationId: UUID): Activation?
 
+    /** Читает активные активации звонка с зафиксированным выбором версии плагина. */
+    suspend fun findActiveByCall(callId: String): List<Activation>
+
     /** Читает сохранённый маршрут независимо от состояния; проверка доступности относится к сервису. */
     suspend fun route(activationId: UUID): ActivationRoute?
 

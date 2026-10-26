@@ -1,0 +1,10 @@
+generate:
+  inputs:
+    - directory: proto
+  plugins:
+    # The Java output provides Protobuf runtime message classes.
+    - name: java
+      out: src/quarkus-generated-sources/easyp/java
+    # The Kotlin output provides idiomatic Kotlin DSL wrappers for those messages.
+    - name: kotlin
+      out: src/quarkus-generated-sources/easyp/kotlin

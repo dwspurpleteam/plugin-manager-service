@@ -36,6 +36,18 @@ val integrationTestTask = tasks.register<Test>("integrationTest") {
 
 val migrationsDirectory = layout.projectDirectory.dir("src/main/resources/db/migration")
 val jooqOutputDirectory = layout.projectDirectory.dir("src/quarkus-generated-sources/java")
+val easyPConfiguration = layout.projectDirectory.file("config/easyp.yaml")
+val easyPJavaOutputDirectory = layout.projectDirectory.dir("src/quarkus-generated-sources/easyp/java")
+val easyPKotlinOutputDirectory = layout.projectDirectory.dir("src/quarkus-generated-sources/easyp/kotlin")
+val easyPExecutable = providers.gradleProperty("easyPExecutable")
+    .orElse(providers.environmentVariable("EASYP_BIN"))
+    .orElse(
+        providers.provider {
+            listOf("/opt/homebrew/bin/easyp", "/usr/local/bin/easyp")
+                .firstOrNull { file(it).canExecute() }
+                ?: "easyp"
+        }
+    )
 
 dependencies {
     implementation(enforcedPlatform(libs.io.quarkus.platform.quarkus.bom))
@@ -55,6 +67,7 @@ dependencies {
 
     // gRPC
     implementation(libs.io.quarkus.quarkus.grpc)
+    implementation(libs.com.google.protobuf.protobuf.kotlin)
     implementation(libs.io.smallrye.reactive.mutiny.kotlin)
 
     // Миграции через JDBC
@@ -182,6 +195,20 @@ kotlin {
 
 sourceSets.main {
     java.srcDir(jooqOutputDirectory)
+    java.srcDir(easyPJavaOutputDirectory)
+    kotlin.srcDir(easyPKotlinOutputDirectory)
+}
+
+val generateProtoMessages = tasks.register<Exec>("generateProtoMessages") {
+    group = "code generation"
+    description = "Generates Kotlin and Java Protobuf message sources with EasyP."
+
+    environment("EASYP_CFG", easyPConfiguration.asFile.absolutePath)
+    commandLine(easyPExecutable.get(), "generate", "--path", "proto", "--root", layout.projectDirectory.asFile.absolutePath)
+
+    inputs.dir(layout.projectDirectory.dir("proto"))
+    inputs.file(easyPConfiguration)
+    outputs.dirs(easyPJavaOutputDirectory, easyPKotlinOutputDirectory)
 }
 
 val generateJooq = tasks.register<JavaExec>("generateJooq") {
@@ -208,8 +235,10 @@ val generateJooq = tasks.register<JavaExec>("generateJooq") {
 
 tasks.named("compileJava") {
     dependsOn(generateJooq)
+    dependsOn(generateProtoMessages)
 }
 
 tasks.named("compileKotlin") {
     dependsOn(generateJooq)
+    dependsOn(generateProtoMessages)
 }

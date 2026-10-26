@@ -25,6 +25,7 @@ io-quarkus-quarkus-smallrye-openapi = { group = "io.quarkus", name = "quarkus-sm
 io-quarkus-quarkus-redis-client = { group = "io.quarkus", name = "quarkus-redis-client" }
 com-fasterxml-jackson-module-kotlin = { group = "com.fasterxml.jackson.module", name = "jackson-module-kotlin" }
 io-quarkus-quarkus-grpc = { group = "io.quarkus", name = "quarkus-grpc" }
+com-google-protobuf-protobuf-kotlin = { group = "com.google.protobuf", name = "protobuf-kotlin" }
 io-smallrye-reactive-mutiny-kotlin = { group = "io.smallrye.reactive", name = "mutiny-kotlin" }
 io-quarkus-quarkus-flyway = { group = "io.quarkus", name = "quarkus-flyway" }
 io-quarkus-quarkus-jdbc-postgresql = { group = "io.quarkus", name = "quarkus-jdbc-postgresql" }
