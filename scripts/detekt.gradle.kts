@@ -17,6 +17,7 @@ detektConfig.setFrom(layout.projectDirectory.file("config/detekt/detekt.yml"))
 val sourceSets = extensions.getByType<SourceSetContainer>()
 tasks.named("detekt") {
     (this as SourceTask).source(layout.projectDirectory.dir("src/integrationTest/kotlin"))
+    source(layout.projectDirectory.dir("src/nativeTest/kotlin"))
 
     val classpath = javaClass.getMethod("getClasspath").invoke(this) as ConfigurableFileCollection
     classpath.setFrom(

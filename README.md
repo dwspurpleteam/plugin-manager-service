@@ -170,19 +170,34 @@ The application, packaged as an _über-jar_, is now runnable using `java -jar bu
 
 ## Creating a native executable
 
-You can create a native executable using:
+Native compilation requires Docker and a running Docker daemon. The build first generates jOOQ and Protobuf sources, then produces the native runner:
 
 ```shell script
-./gradlew build -Dquarkus.native.enabled=true
+./gradlew nativeTest \
+  -Dquarkus.native.enabled=true \
+  -Dquarkus.native.container-build=true \
+  -Dquarkus.package.jar.enabled=false
 ```
 
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
+The command creates `build/plugin-manage-service-1.0.0-SNAPSHOT-runner` and runs the native-image liveness test against that executable.
+
+To build the executable without running native tests, use:
 
 ```shell script
-./gradlew build -Dquarkus.native.enabled=true -Dquarkus.native.container-build=true
+./gradlew quarkusBuild \
+  -Dquarkus.native.enabled=true \
+  -Dquarkus.native.container-build=true \
+  -Dquarkus.package.jar.enabled=false
 ```
 
-You can then execute your native executable with: `./build/plugin-manage-service-1.0.0-SNAPSHOT-runner`
+The Dockerfile is runtime-only and packages the prebuilt native runner; it does not run Gradle or Testcontainers during `docker build`:
+
+```shell script
+docker build -t plugin-manage-service:native .
+docker run --rm -p 8080:8080 -p 9000:9000 plugin-manage-service:native
+```
+
+The CI pipeline runs the `native-test` stage after JVM integration tests. It builds the native image in a container and executes `nativeTest`.
 
 If you want to learn more about building native executables, please consult <https://quarkus.io/guides/gradle-tooling>.
 

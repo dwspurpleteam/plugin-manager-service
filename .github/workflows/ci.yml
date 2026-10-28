@@ -105,3 +105,32 @@ jobs:
         env:
           EASYP_BIN: ${{ runner.temp }}/easyp-bin/easyp
         run: ./gradlew integrationTest
+
+  native-test:
+    name: Native image tests
+    needs: integration-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install EasyP
+        run: |
+          mkdir -p "$RUNNER_TEMP/easyp-bin"
+          GOBIN="$RUNNER_TEMP/easyp-bin" go install github.com/easyp-tech/easyp/cmd/easyp@v0.17.0
+      - name: Build native image and run native tests
+        env:
+          EASYP_BIN: ${{ runner.temp }}/easyp-bin/easyp
+        run: >-
+          ./gradlew nativeTest
+          -Dquarkus.native.enabled=true
+          -Dquarkus.native.container-build=true
+          -Dquarkus.package.jar.enabled=false
