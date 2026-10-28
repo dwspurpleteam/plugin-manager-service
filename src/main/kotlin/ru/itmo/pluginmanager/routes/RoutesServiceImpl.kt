@@ -9,6 +9,7 @@ import ru.itmo.pluginmanager.routes.v1.CheckEventPermissionResponse
 import ru.itmo.pluginmanager.routes.v1.CheckMediaPermissionRequest
 import ru.itmo.pluginmanager.routes.v1.CheckMediaPermissionResponse
 import ru.itmo.pluginmanager.routes.v1.EventType
+import ru.itmo.pluginmanager.routes.v1.PluginInfo
 import ru.itmo.pluginmanager.domain.MediaType as ManifestMediaType
 import ru.itmo.pluginmanager.routes.v1.MediaType as RouteMediaType
 
@@ -20,7 +21,7 @@ class RoutesServiceImpl(private val activations: ActivationStore, private val co
             .filter { activation ->
                 val events = configurations.get(requireNotNull(activation.selection)).manifest.backend.events
                 request.eventType.groupName() in events.availableEventGroups.orEmpty() ||
-                        request.eventType.eventName() in events.availableEventTypes.orEmpty()
+                    request.eventType.eventName() in events.availableEventTypes.orEmpty()
             }
             .map { it.request.pluginId }
             .distinct()
@@ -38,13 +39,18 @@ class RoutesServiceImpl(private val activations: ActivationStore, private val co
                     val input = configurations.get(requireNotNull(activation.selection)).manifest.backend.media.input
                     requestedMediaType in input
                 }
-                .map { it.request.pluginId }
+                .map {
+                    PluginInfo.newBuilder()
+                        .setPluginId(it.request.pluginId)
+                        .setPluginVersion(it.request.pluginVersion)
+                        .build()
+                }
                 .distinct()
         }.orEmpty()
         return CheckMediaPermissionResponse.newBuilder()
             .setMediaType(request.mediaType)
             .setCanSend(pluginIds.isNotEmpty())
-            .addAllPluginIds(pluginIds)
+            .addAllPlugins(pluginIds)
             .build()
     }
 

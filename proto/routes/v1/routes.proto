@@ -77,7 +77,12 @@ message CheckMediaPermissionRequest {
 message CheckMediaPermissionResponse {
   bool can_send = 1;
   MediaType media_type = 2;
-  repeated string plugin_ids = 3;
+  repeated PluginInfo plugins = 3;
+}
+
+message PluginInfo {
+  string plugin_id = 1;
+  string plugin_version = 2;
 }
 
 // Resolves plugins that may receive events and media streams from a caller.

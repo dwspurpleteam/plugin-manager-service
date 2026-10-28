@@ -1,5 +1,6 @@
 package ru.itmo.pluginmanager.routes
 
+import org.eclipse.microprofile.context.ThreadContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import ru.itmo.pluginmanager.routes.v1.CheckEventPermissionRequest
@@ -14,13 +15,17 @@ class RoutesGrpcServerTest {
      */
     @Test
     fun `binds contract RPC methods`() {
-        val methods = RoutesGrpcServer(object : RoutesService {
-            override suspend fun getPermissionsForEvent(request: CheckEventPermissionRequest) =
-                CheckEventPermissionResponse.getDefaultInstance()
+        val executor = ThreadContext.builder().build()
+        val methods = RoutesGrpcServer(
+            object : RoutesService {
+                override suspend fun getPermissionsForEvent(request: CheckEventPermissionRequest) =
+                    CheckEventPermissionResponse.getDefaultInstance()
 
-            override suspend fun getPermissionsForMedia(request: CheckMediaPermissionRequest) =
-                CheckMediaPermissionResponse.getDefaultInstance()
-        })
+                override suspend fun getPermissionsForMedia(request: CheckMediaPermissionRequest) =
+                    CheckMediaPermissionResponse.getDefaultInstance()
+            },
+            executor,
+        )
             .bindService()
             .methods
             .map { it.methodDescriptor.fullMethodName }

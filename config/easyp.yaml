@@ -4,7 +4,7 @@ generate:
   plugins:
     # The Java output provides Protobuf runtime message classes.
     - name: java
-      out: src/quarkus-generated-sources/easyp/java
+      out: build/generated/sources/protobuf/main/java
     # The Kotlin output provides idiomatic Kotlin DSL wrappers for those messages.
     - name: kotlin
-      out: src/quarkus-generated-sources/easyp/kotlin
+      out: build/generated/sources/protobuf/main/kotlin

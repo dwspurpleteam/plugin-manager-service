@@ -121,7 +121,7 @@ Generate the jOOQ model with:
 ```
 
 The task starts an ephemeral PostgreSQL Testcontainer, applies all Flyway migrations,
-and writes the generated Java model to `src/quarkus-generated-sources/java`. The output
+and writes the generated Java model to `build/generated/sources/jooq/main/java`. The output
 directory is intentionally excluded from Git and is also generated automatically before
 the project's Java or Kotlin compilation tasks.
 

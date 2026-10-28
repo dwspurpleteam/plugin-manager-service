@@ -11,7 +11,9 @@ import io.quarkus.grpc.GrpcService
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
+import org.eclipse.microprofile.context.ThreadContext
 import org.jboss.logging.Logger
 import ru.itmo.pluginmanager.routes.v1.CheckEventPermissionRequest
 import ru.itmo.pluginmanager.routes.v1.CheckEventPermissionResponse
@@ -20,54 +22,48 @@ import ru.itmo.pluginmanager.routes.v1.CheckMediaPermissionResponse
 
 @GrpcService
 @Singleton
-class RoutesGrpcServer(private val routesService: RoutesService) : BindableService {
+class RoutesGrpcServer(private val routesService: RoutesService, private val context: ThreadContext) : BindableService {
     private val scope = CoroutineScope(SupervisorJob())
     private val logger = Logger.getLogger(this::class.simpleName)
 
     override fun bindService(): ServerServiceDefinition = ServerServiceDefinition.builder(SERVICE_NAME)
         .addMethod(
             checkEventPermissionMethod,
-            ServerCalls.asyncUnaryCall { request, observer ->
-                scope.launch {
-                    try {
-                        val response = routesService.getPermissionsForEvent(request)
-                        observer.onNext(response)
-                        observer.onCompleted()
-                    } catch (
-                        @Suppress("TooGenericExceptionCaught") e: Exception,
-                    ) {
-                        observer.onError(
-                            Status.INTERNAL
-                                .withDescription("Permission check failed")
-                                .withCause(e)
-                                .asRuntimeException(),
-                        )
-                        logger.errorf(e, "error with method checkEventPermissionMethod")
-                    }
-                }
-            },
+            unaryCall("CheckEventPermission", routesService::getPermissionsForEvent),
         ).addMethod(
             checkMediaPermissionMethod,
-            ServerCalls.asyncUnaryCall { request, observer ->
-                scope.launch {
-                    try {
-                        val response = routesService.getPermissionsForMedia(request)
-                        observer.onNext(response)
-                        observer.onCompleted()
-                    } catch (
-                        @Suppress("TooGenericExceptionCaught") e: Exception,
-                    ) {
-                        observer.onError(
-                            Status.INTERNAL
-                                .withDescription("Permission check failed")
-                                .withCause(e)
-                                .asRuntimeException(),
-                        )
-                        logger.errorf(e, "error with method checkMediaPermissionMethod")
-                    }
-                }
-            },
+            unaryCall("CheckMediaPermission", routesService::getPermissionsForMedia),
         ).build()
+
+    private fun <RequestT, ResponseT> unaryCall(methodName: String, handler: suspend (RequestT) -> ResponseT) =
+        ServerCalls.asyncUnaryCall { request: RequestT, observer ->
+            scope.launch(context.currentContextExecutor().asCoroutineDispatcher()) {
+                try {
+                    observer.onNext(handler(request))
+                    observer.onCompleted()
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") exception: Exception,
+                ) {
+                    failCall(methodName, observer, exception)
+                } catch (error: LinkageError) {
+                    failCall(methodName, observer, error)
+                }
+            }
+        }
+
+    private fun <ResponseT> failCall(
+        methodName: String,
+        observer: io.grpc.stub.StreamObserver<ResponseT>,
+        cause: Throwable,
+    ) {
+        observer.onError(
+            Status.INTERNAL
+                .withDescription("Permission check failed")
+                .withCause(cause)
+                .asRuntimeException(),
+        )
+        logger.errorf(cause, "error with method %s", methodName)
+    }
 
     private companion object {
         const val SERVICE_NAME = "routes.v1.RoutesService"

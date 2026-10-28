@@ -1,4 +1,3 @@
-import dev.detekt.gradle.Detekt
 import org.gradle.kotlin.dsl.sourceSets
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -15,7 +14,10 @@ repositories {
     mavenLocal()
 }
 
-val jooqGenerator = sourceSets.create("jooqGenerator")
+apply(from = "scripts/detekt.gradle.kts")
+apply(from = "scripts/generate-jooq.gradle.kts")
+apply(from = "scripts/generate-protobuf.gradle.kts")
+
 val integrationTest = sourceSets.getByName("integrationTest")
 configurations[integrationTest.implementationConfigurationName].extendsFrom(configurations.testImplementation.get())
 configurations[integrationTest.runtimeOnlyConfigurationName].extendsFrom(configurations.testRuntimeOnly.get())
@@ -33,21 +35,6 @@ val integrationTestTask = tasks.register<Test>("integrationTest") {
     shouldRunAfter(tasks.test)
     dependsOn("quarkusBuild")
 }
-
-val migrationsDirectory = layout.projectDirectory.dir("src/main/resources/db/migration")
-val jooqOutputDirectory = layout.projectDirectory.dir("src/quarkus-generated-sources/java")
-val easyPConfiguration = layout.projectDirectory.file("config/easyp.yaml")
-val easyPJavaOutputDirectory = layout.projectDirectory.dir("src/quarkus-generated-sources/easyp/java")
-val easyPKotlinOutputDirectory = layout.projectDirectory.dir("src/quarkus-generated-sources/easyp/kotlin")
-val easyPExecutable = providers.gradleProperty("easyPExecutable")
-    .orElse(providers.environmentVariable("EASYP_BIN"))
-    .orElse(
-        providers.provider {
-            listOf("/opt/homebrew/bin/easyp", "/usr/local/bin/easyp")
-                .firstOrNull { file(it).canExecute() }
-                ?: "easyp"
-        }
-    )
 
 dependencies {
     implementation(enforcedPlatform(libs.io.quarkus.platform.quarkus.bom))
@@ -67,7 +54,6 @@ dependencies {
 
     // gRPC
     implementation(libs.io.quarkus.quarkus.grpc)
-    implementation(libs.com.google.protobuf.protobuf.kotlin)
     implementation(libs.io.smallrye.reactive.mutiny.kotlin)
 
     // Миграции через JDBC
@@ -97,19 +83,6 @@ dependencies {
 
     detektPlugins(libs.dev.detekt.rules.ktlint.wrapper)
 
-    add(jooqGenerator.implementationConfigurationName, enforcedPlatform(libs.io.quarkus.platform.quarkus.bom))
-    add(jooqGenerator.implementationConfigurationName, libs.org.jooq.jooq.codegen)
-    add(jooqGenerator.implementationConfigurationName, libs.org.flywaydb.flyway.core)
-    add(jooqGenerator.implementationConfigurationName, libs.org.flywaydb.flyway.database.postgresql)
-    add(jooqGenerator.implementationConfigurationName, libs.org.postgresql.postgresql)
-    add(jooqGenerator.implementationConfigurationName, libs.org.testcontainers.testcontainers.postgresql)
-    add(jooqGenerator.runtimeOnlyConfigurationName, libs.org.slf4j.slf4j.simple)
-}
-
-detekt {
-    buildUponDefaultConfig = true
-    config.setFrom(layout.projectDirectory.file("config/detekt/detekt.yml"))
-    parallel = true
 }
 
 val lintDependencyDeclarations by tasks.registering {
@@ -119,6 +92,9 @@ val lintDependencyDeclarations by tasks.registering {
     val gradleScripts = files(
         layout.projectDirectory.file("build.gradle.kts"),
         layout.projectDirectory.file("settings.gradle.kts"),
+        layout.projectDirectory.dir("scripts").asFileTree.matching {
+            include("*.gradle.kts")
+        },
     )
     inputs.files(gradleScripts)
 
@@ -149,18 +125,6 @@ val lintDependencyDeclarations by tasks.registering {
             "Use the version catalog instead of string dependency coordinates:\n${violations.joinToString("\n")}"
         }
     }
-}
-
-tasks.named<Detekt>("detekt") {
-    source(layout.projectDirectory.dir("src/integrationTest/kotlin"))
-    classpath.setFrom(
-        configurations.named("compileClasspath"),
-        configurations.named("testCompileClasspath"),
-        configurations.named("integrationTestCompileClasspath"),
-        sourceSets.main.get().output,
-        sourceSets.test.get().output,
-    )
-    jvmTarget.set("21")
 }
 
 tasks.named("check") {
@@ -194,51 +158,5 @@ kotlin {
 }
 
 sourceSets.main {
-    java.srcDir(jooqOutputDirectory)
-    java.srcDir(easyPJavaOutputDirectory)
-    kotlin.srcDir(easyPKotlinOutputDirectory)
-}
-
-val generateProtoMessages = tasks.register<Exec>("generateProtoMessages") {
-    group = "code generation"
-    description = "Generates Kotlin and Java Protobuf message sources with EasyP."
-
-    environment("EASYP_CFG", easyPConfiguration.asFile.absolutePath)
-    commandLine(easyPExecutable.get(), "generate", "--path", "proto", "--root", layout.projectDirectory.asFile.absolutePath)
-
-    inputs.dir(layout.projectDirectory.dir("proto"))
-    inputs.file(easyPConfiguration)
-    outputs.dirs(easyPJavaOutputDirectory, easyPKotlinOutputDirectory)
-}
-
-val generateJooq = tasks.register<JavaExec>("generateJooq") {
-    group = "code generation"
-    description = "Migrates a Testcontainers PostgreSQL database and generates jOOQ sources."
-
-    dependsOn(jooqGenerator.classesTaskName)
-    classpath = jooqGenerator.runtimeClasspath
-    mainClass = "ru.itmo.pluginmanager.codegen.JooqGenerator"
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-
-    args(
-        migrationsDirectory.asFile.absolutePath,
-        jooqOutputDirectory.asFile.absolutePath,
-        "ru.itmo.pluginmanager.jooq.generated"
-    )
-
-    inputs.dir(migrationsDirectory)
-    inputs.files(jooqGenerator.allSource)
-    outputs.dir(jooqOutputDirectory)
-}
-
-tasks.named("compileJava") {
-    dependsOn(generateJooq)
-    dependsOn(generateProtoMessages)
-}
-
-tasks.named("compileKotlin") {
-    dependsOn(generateJooq)
-    dependsOn(generateProtoMessages)
+    kotlin.srcDir(layout.buildDirectory.dir("generated/sources/protobuf/main/kotlin"))
 }
