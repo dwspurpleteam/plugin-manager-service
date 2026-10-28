@@ -21,8 +21,18 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew detekt
+      - name: Install EasyP
+        run: |
+          mkdir -p "$RUNNER_TEMP/easyp-bin"
+          GOBIN="$RUNNER_TEMP/easyp-bin" go install github.com/easyp-tech/easyp/cmd/easyp@v0.17.0
+      - name: Run linter
+        env:
+          EASYP_BIN: ${{ runner.temp }}/easyp-bin/easyp
+        run: ./gradlew detekt
 
   assemble:
     name: Assemble
@@ -41,9 +51,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Install EasyP
         run: |
-          go install github.com/easyp-tech/easyp/cmd/easyp@v0.17.0
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          mkdir -p "$RUNNER_TEMP/easyp-bin"
+          GOBIN="$RUNNER_TEMP/easyp-bin" go install github.com/easyp-tech/easyp/cmd/easyp@v0.17.0
       - name: Build application
+        env:
+          EASYP_BIN: ${{ runner.temp }}/easyp-bin/easyp
         run: ./gradlew assemble
 
   test:
@@ -63,9 +75,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Install EasyP
         run: |
-          go install github.com/easyp-tech/easyp/cmd/easyp@v0.17.0
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          mkdir -p "$RUNNER_TEMP/easyp-bin"
+          GOBIN="$RUNNER_TEMP/easyp-bin" go install github.com/easyp-tech/easyp/cmd/easyp@v0.17.0
       - name: Run unit tests
+        env:
+          EASYP_BIN: ${{ runner.temp }}/easyp-bin/easyp
         run: ./gradlew test
 
   integration-test:
@@ -85,7 +99,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Install EasyP
         run: |
-          go install github.com/easyp-tech/easyp/cmd/easyp@v0.17.0
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          mkdir -p "$RUNNER_TEMP/easyp-bin"
+          GOBIN="$RUNNER_TEMP/easyp-bin" go install github.com/easyp-tech/easyp/cmd/easyp@v0.17.0
       - name: Run integration tests
+        env:
+          EASYP_BIN: ${{ runner.temp }}/easyp-bin/easyp
         run: ./gradlew integrationTest
