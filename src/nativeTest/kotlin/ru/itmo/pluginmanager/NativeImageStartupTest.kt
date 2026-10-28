@@ -16,7 +16,7 @@ class NativeImageStartupTest {
      * Ожидаемый результат: процесс запускается и `/q/health/live` возвращает HTTP 200.
      */
     @Test
-    fun `native executable starts and exposes liveness endpoint`() {
+    fun nativeExecutableStartsAndExposesLivenessEndpoint() {
         val runner = Path.of(requireNotNull(System.getProperty("native.runner.path")))
         check(Files.isExecutable(runner)) { "Native runner is unavailable: $runner" }
 
@@ -36,10 +36,10 @@ class NativeImageStartupTest {
 
         try {
             val response = awaitLiveness(process, httpPort, log)
-            assertEquals(200, response.statusCode())
+            assertEquals(HTTP_OK, response.statusCode())
         } finally {
             process.destroy()
-            if (!process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)) {
+            if (!process.waitFor(PROCESS_STOP_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)) {
                 process.destroyForcibly()
             }
             Files.deleteIfExists(log)
@@ -52,7 +52,7 @@ class NativeImageStartupTest {
             .timeout(Duration.ofSeconds(1))
             .GET()
             .build()
-        val deadline = System.nanoTime() + Duration.ofSeconds(60).toNanos()
+        val deadline = System.nanoTime() + Duration.ofSeconds(STARTUP_TIMEOUT_SECONDS).toNanos()
 
         while (System.nanoTime() < deadline) {
             if (!process.isAlive) {
@@ -61,11 +61,18 @@ class NativeImageStartupTest {
             runCatching { client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString()) }
                 .getOrNull()
                 ?.let { return it }
-            Thread.sleep(250)
+            Thread.sleep(HEALTH_RETRY_DELAY_MILLIS)
         }
 
         throw AssertionError("Native executable did not expose liveness endpoint:\n${Files.readString(log)}")
     }
 
     private fun findFreePort(): Int = ServerSocket(0).use { it.localPort }
+
+    private companion object {
+        const val HTTP_OK = 200
+        const val PROCESS_STOP_TIMEOUT_SECONDS = 10L
+        const val STARTUP_TIMEOUT_SECONDS = 60L
+        const val HEALTH_RETRY_DELAY_MILLIS = 250L
+    }
 }
