@@ -109,7 +109,7 @@ jobs:
 
   publish-image:
     name: Build and publish Docker image
-    needs: integration-test
+    needs: assemble
     runs-on: ubuntu-latest
 
     steps:
