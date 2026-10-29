@@ -109,7 +109,6 @@ jobs:
 
   publish-image:
     name: Build and publish Docker image
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
     needs: integration-test
     runs-on: ubuntu-latest
 
