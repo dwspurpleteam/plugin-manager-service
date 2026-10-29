@@ -1,6 +1,8 @@
 package ru.itmo.pluginmanager.persistence
 
 import jakarta.enterprise.context.ApplicationScoped
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 import ru.itmo.pluginmanager.database.JooqTransaction
@@ -20,7 +22,6 @@ import java.time.ZoneOffset
 import java.util.UUID
 import ru.itmo.pluginmanager.jooq.generated.enums.ActivationState as DatabaseActivationState
 import ru.itmo.pluginmanager.jooq.generated.enums.ActivationWorkKind as DatabaseActivationWorkKind
-import ru.itmo.pluginmanager.jooq.generated.enums.MediaType as DatabaseMediaType
 
 @ApplicationScoped
 class JooqActivationStore(private val transaction: JooqTransaction) : ActivationStore {
@@ -60,6 +61,15 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
             .awaitFirstOrNull()?.toDomain()
     }
 
+    override suspend fun findActiveByCall(callId: String) = transaction.transaction { dsl ->
+        dsl.selectFrom(PLUGIN_ACTIVATION)
+            .where(PLUGIN_ACTIVATION.CALL_ID.eq(callId))
+            .and(PLUGIN_ACTIVATION.STATE.eq(DatabaseActivationState.ACTIVE))
+            .asFlow()
+            .toList()
+            .map { it.toDomain() }
+    }
+
     override suspend fun route(activationId: UUID) = transaction.transaction { it.readRoute(activationId) }
 
     override suspend fun pinSelection(lease: WorkLease, selection: PluginSelection) {
@@ -91,10 +101,6 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
                 .set(ACTIVATION_ROUTE.ALLOWED_EVENT_TYPES, route.allowedEventTypes?.sorted()?.toTypedArray())
                 .set(ACTIVATION_ROUTE.ALLOWED_EVENT_GROUPS, route.allowedEventGroups?.sorted()?.toTypedArray())
                 .set(ACTIVATION_ROUTE.HEALTHCHECK_URL, route.healthcheckUrl)
-                .set(
-                    ACTIVATION_ROUTE.MEDIA_TYPES,
-                    route.mediaTypes.map { DatabaseMediaType.valueOf(it.name) }.sortedBy { it.name }.toTypedArray(),
-                )
                 .onConflict(ACTIVATION_ROUTE.ACTIVATION_ID).doNothing().awaitSingle()
         }
     }
