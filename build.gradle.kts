@@ -63,6 +63,7 @@ dependencies {
 
     // Kotlin и CDI
     implementation(libs.io.quarkus.quarkus.kotlin)
+    implementation(libs.io.quarkus.quarkus.container.image.docker)
     implementation(libs.org.jetbrains.kotlin.kotlin.stdlib.jdk8)
     implementation(libs.io.quarkus.quarkus.arc)
 

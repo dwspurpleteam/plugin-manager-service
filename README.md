@@ -168,6 +168,23 @@ If you want to build an _über-jar_, execute the following command:
 
 The application, packaged as an _über-jar_, is now runnable using `java -jar build/*-runner.jar`.
 
+### Building the JVM container image
+
+Java 21 and a running Docker daemon are required. The Quarkus `imageBuild` task
+packages the application and builds the image using
+`src/main/docker/Dockerfile.jvm`:
+
+```shell script
+./gradlew imageBuild \
+  -Dquarkus.container-image.build=true \
+  -Dquarkus.container-image.builder=docker \
+  -Dquarkus.container-image.group=local \
+  -Dquarkus.container-image.name=plugin-manage-service \
+  -Dquarkus.container-image.tag=jvm
+```
+
+The resulting local image is `local/plugin-manage-service:jvm`.
+
 ## Creating a native executable
 
 Native compilation requires Docker and a running Docker daemon. The build first generates jOOQ and Protobuf sources, then produces the native runner:

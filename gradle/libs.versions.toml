@@ -17,6 +17,7 @@ org-slf4j-version = "2.0.18"
 dev-detekt-rules-ktlint-wrapper = { group = "dev.detekt", name = "detekt-rules-ktlint-wrapper", version.ref = "dev-detekt-version" }
 io-quarkus-platform-quarkus-bom = { group = "io.quarkus.platform", name = "quarkus-bom", version.ref = "io-quarkus-platform-version" }
 io-quarkus-quarkus-kotlin = { group = "io.quarkus", name = "quarkus-kotlin" }
+io-quarkus-quarkus-container-image-docker = { group = "io.quarkus", name = "quarkus-container-image-docker" }
 org-jetbrains-kotlin-kotlin-stdlib-jdk8 = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8" }
 io-quarkus-quarkus-arc = { group = "io.quarkus", name = "quarkus-arc" }
 io-quarkus-quarkus-rest-kotlin = { group = "io.quarkus", name = "quarkus-rest-kotlin" }
