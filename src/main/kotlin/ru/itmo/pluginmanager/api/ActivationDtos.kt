@@ -1,5 +1,6 @@
 package ru.itmo.pluginmanager.api
 
+import io.quarkus.runtime.annotations.RegisterForReflection
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.MediaType
@@ -42,4 +43,5 @@ data class SignalRouteResponse(
 
 data class MediaTypesResponse(val activationId: UUID, val mediaTypes: Set<MediaType>)
 
+@RegisterForReflection
 data class ErrorResponse(val code: ErrorCode, val message: String, val activationId: UUID? = null)

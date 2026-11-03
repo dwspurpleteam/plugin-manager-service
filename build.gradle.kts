@@ -34,6 +34,28 @@ val integrationTestTask = tasks.register<Test>("integrationTest") {
     dependsOn("quarkusBuild")
 }
 
+val nativeImageTest = sourceSets.create("nativeImageTest") {
+    kotlin.srcDir("src/nativeTest/kotlin")
+}
+configurations[nativeImageTest.implementationConfigurationName].extendsFrom(configurations.testImplementation.get())
+configurations[nativeImageTest.runtimeOnlyConfigurationName].extendsFrom(configurations.testRuntimeOnly.get())
+nativeImageTest.compileClasspath += sourceSets.main.get().output
+nativeImageTest.runtimeClasspath += sourceSets.main.get().output
+
+val nativeTestTask = tasks.register<Test>("nativeTest") {
+    description = "Runs tests against the native executable."
+    group = "verification"
+    testClassesDirs = nativeImageTest.output.classesDirs
+    classpath = nativeImageTest.runtimeClasspath
+    useJUnitPlatform()
+    shouldRunAfter(integrationTestTask)
+    dependsOn("quarkusBuild")
+
+    val nativeRunner = layout.buildDirectory.file("${project.name}-${project.version}-runner")
+    inputs.file(nativeRunner)
+    systemProperty("native.runner.path", nativeRunner.get().asFile.absolutePath)
+}
+
 val migrationsDirectory = layout.projectDirectory.dir("src/main/resources/db/migration")
 val jooqOutputDirectory = layout.projectDirectory.dir("src/quarkus-generated-sources/java")
 
@@ -42,6 +64,7 @@ dependencies {
 
     // Kotlin и CDI
     implementation(libs.io.quarkus.quarkus.kotlin)
+    implementation(libs.io.quarkus.quarkus.container.image.docker)
     implementation(libs.org.jetbrains.kotlin.kotlin.stdlib.jdk8)
     implementation(libs.io.quarkus.quarkus.arc)
 
@@ -49,6 +72,7 @@ dependencies {
     implementation(libs.io.quarkus.quarkus.rest.kotlin)
     implementation(libs.io.quarkus.quarkus.rest.jackson)
     implementation(libs.io.quarkus.quarkus.smallrye.openapi)
+    implementation(libs.io.quarkus.quarkus.smallrye.health)
 
     // Исходящие REST-запросы
     implementation(libs.io.quarkus.quarkus.rest.client.jackson)
@@ -71,6 +95,8 @@ dependencies {
     implementation(libs.org.jooq.jooq.kotlin.coroutines)
 
     // Реактивный доступ к PostgreSQL
+    implementation(libs.io.micrometer.micrometer.core)
+    implementation(libs.org.locationtech.jts.core)
     implementation(libs.org.postgresql.r2dbc.postgresql)
     implementation(libs.io.r2dbc.r2dbc.pool)
     implementation(libs.org.jetbrains.kotlinx.kotlinx.coroutines.reactive)
@@ -153,6 +179,7 @@ tasks.named<Detekt>("detekt") {
 tasks.named("check") {
     dependsOn(lintDependencyDeclarations)
     dependsOn(integrationTestTask)
+    dependsOn(nativeTestTask)
 }
 
 group = "ru.itmo"
