@@ -8,7 +8,6 @@ import ru.itmo.pluginmanager.database.JooqTransaction
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.jooq.generated.Tables.ACTIVATION_WORK
-import ru.itmo.pluginmanager.jooq.generated.tables.records.ActivationWorkRecord
 import ru.itmo.pluginmanager.worker.WorkKind
 import ru.itmo.pluginmanager.worker.WorkLease
 import java.time.Duration
@@ -41,14 +40,13 @@ class JooqWorkStore(private val transaction: JooqTransaction) : WorkStore {
                 limit,
                 leaseDuration.toMillis(),
             ).asFlow().toList().map { row ->
-                val record = row.into(ActivationWorkRecord::class.java)
                 WorkLease(
-                    record.activationId,
-                    record.leaseToken,
+                    row.get(ACTIVATION_WORK.ACTIVATION_ID),
+                    checkNotNull(row.get(ACTIVATION_WORK.LEASE_TOKEN)),
                     kind,
-                    record.leaseUntil.toInstant(),
-                    record.attemptCount,
-                    record.consecutiveHealthFailures,
+                    checkNotNull(row.get(ACTIVATION_WORK.LEASE_UNTIL)).toInstant(),
+                    row.get(ACTIVATION_WORK.ATTEMPT_COUNT),
+                    row.get(ACTIVATION_WORK.CONSECUTIVE_HEALTH_FAILURES),
                 )
             }
         }
