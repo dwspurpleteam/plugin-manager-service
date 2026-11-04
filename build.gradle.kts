@@ -205,11 +205,3 @@ val generateJooq = tasks.register<JavaExec>("generateJooq") {
     inputs.files(jooqGenerator.allSource)
     outputs.dir(jooqOutputDirectory)
 }
-
-tasks.named("compileJava") {
-    dependsOn(generateJooq)
-}
-
-tasks.named("compileKotlin") {
-    dependsOn(generateJooq)
-}

@@ -56,8 +56,8 @@ The OpenAPI document is available at `/q/openapi`, and Swagger UI is available a
 
 ## Verification
 
-Java 21 and a working Docker/Testcontainers environment are required, including for
-the existing jOOQ generation. Tests never use the configured development database.
+Java 21 and a working Docker/Testcontainers environment are required for integration
+tests and jOOQ generation. Tests never use the configured development database.
 
 ```shell
 ./gradlew detekt test integrationTest assemble lintDependencyDeclarations
@@ -121,12 +121,9 @@ Generate the jOOQ model with:
 ```
 
 The task starts an ephemeral PostgreSQL Testcontainer, applies all Flyway migrations,
-and writes the generated Java model to `src/quarkus-generated-sources/java`. The output
-directory is intentionally excluded from Git and is also generated automatically before
-the project's Java or Kotlin compilation tasks. For an image build without access to Docker,
-`JOOQ_JDBC_URL` can point to `jdbc:postgresql://127.0.0.1:5432/plugin_manager_build`
-using the `postgres` user with no password. The generator applies migrations to that database: never point it at
-a development or production database.
+and writes the generated Java model to `src/quarkus-generated-sources/java`.
+The generated sources are committed and used directly by normal builds. After changing
+migrations, regenerate and commit them together with the migration.
 
 Runtime database access uses jOOQ over a pooled R2DBC connection. Configure it with the
 following environment variables: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`,
