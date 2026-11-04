@@ -124,8 +124,8 @@ The task starts an ephemeral PostgreSQL Testcontainer, applies all Flyway migrat
 and writes the generated Java model to `src/quarkus-generated-sources/java`. The output
 directory is intentionally excluded from Git and is also generated automatically before
 the project's Java or Kotlin compilation tasks. For an image build without access to Docker,
-`JOOQ_JDBC_URL` can point to a disposable local PostgreSQL instance using the `postgres`
-user with no password. The generator applies migrations to that database: never point it at
+`JOOQ_JDBC_URL` can point to `jdbc:postgresql://127.0.0.1:5432/plugin_manager_build`
+using the `postgres` user with no password. The generator applies migrations to that database: never point it at
 a development or production database.
 
 Runtime database access uses jOOQ over a pooled R2DBC connection. Configure it with the

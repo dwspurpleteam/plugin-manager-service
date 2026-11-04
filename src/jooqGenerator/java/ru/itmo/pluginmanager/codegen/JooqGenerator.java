@@ -38,6 +38,9 @@ public final class JooqGenerator {
 
         String jdbcUrl = System.getenv("JOOQ_JDBC_URL");
         if (jdbcUrl != null && !jdbcUrl.isBlank()) {
+            if (!jdbcUrl.equals("jdbc:postgresql://127.0.0.1:5432/plugin_manager_build")) {
+                throw new IllegalArgumentException("JOOQ_JDBC_URL must point to the disposable build database");
+            }
             generate(jdbcUrl, "postgres", "", migrationsDirectory, outputDirectory, targetPackage);
             return;
         }
