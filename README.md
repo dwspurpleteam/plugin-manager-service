@@ -123,7 +123,10 @@ Generate the jOOQ model with:
 The task starts an ephemeral PostgreSQL Testcontainer, applies all Flyway migrations,
 and writes the generated Java model to `src/quarkus-generated-sources/java`. The output
 directory is intentionally excluded from Git and is also generated automatically before
-the project's Java or Kotlin compilation tasks.
+the project's Java or Kotlin compilation tasks. For an image build without access to Docker,
+`JOOQ_JDBC_URL` can point to a disposable local PostgreSQL instance using the `postgres`
+user with no password. The generator applies migrations to that database: never point it at
+a development or production database.
 
 Runtime database access uses jOOQ over a pooled R2DBC connection. Configure it with the
 following environment variables: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`,
