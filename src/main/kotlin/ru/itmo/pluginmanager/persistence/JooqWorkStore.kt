@@ -24,17 +24,21 @@ class JooqWorkStore(private val transaction: JooqTransaction) : WorkStore {
         return transaction.transaction { dsl ->
             dsl.resultQuery(
                 """
-                WITH picked AS (
-                    SELECT w.activation_id FROM activation_work w
-                    JOIN plugin_activation a ON a.activation_id = w.activation_id
-                    WHERE w.kind = ? AND a.state = ? AND w.next_run_at <= clock_timestamp()
-                    AND (w.lease_until IS NULL OR w.lease_until <= clock_timestamp())
-                    ORDER BY w.next_run_at, w.activation_id LIMIT ? FOR UPDATE OF w SKIP LOCKED
-                )
-                UPDATE activation_work w SET lease_token = gen_random_uuid(),
-                    lease_until = clock_timestamp() + (? * INTERVAL '1 millisecond'),
-                    attempt_count = w.attempt_count + 1
-                FROM picked p WHERE w.activation_id = p.activation_id RETURNING w.*
+                    WITH picked AS (
+                        SELECT w.activation_id 
+                        FROM activation_work w
+                        JOIN plugin_activation a ON a.activation_id = w.activation_id
+                        WHERE w.kind = ? 
+                            AND a.state = ? 
+                            AND w.next_run_at <= clock_timestamp()
+                            AND (w.lease_until IS NULL OR w.lease_until <= clock_timestamp())
+                        ORDER BY w.next_run_at, w.activation_id LIMIT ? FOR UPDATE OF w SKIP LOCKED
+                    )
+                    UPDATE activation_work w 
+                    SET lease_token = gen_random_uuid(),
+                        lease_until = clock_timestamp() + (? * INTERVAL '1 millisecond'),
+                        attempt_count = w.attempt_count + 1
+                    FROM picked p WHERE w.activation_id = p.activation_id RETURNING w.*
                 """.trimIndent(),
                 DatabaseActivationWorkKind.valueOf(kind.name),
                 if (kind == WorkKind.ACTIVATE) DatabaseActivationState.ACTIVATING else DatabaseActivationState.ACTIVE,

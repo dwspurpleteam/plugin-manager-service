@@ -8,6 +8,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.jboss.logging.Logger
 import ru.itmo.pluginmanager.config.PluginManagerConfig
 import ru.itmo.pluginmanager.domain.validateHttpUrl
+import java.io.IOException
 import java.net.URI
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.milliseconds
@@ -29,6 +30,9 @@ class HttpPluginHealthcheck(private val config: PluginManagerConfig) : PluginHea
                     }
             } ?: false
         } catch (exception: ProcessingException) {
+            logger.errorf(exception, "Plugin status check failed: healthcheckUrl=%s", url)
+            false
+        } catch (exception: IOException) {
             logger.errorf(exception, "Plugin status check failed: healthcheckUrl=%s", url)
             false
         }

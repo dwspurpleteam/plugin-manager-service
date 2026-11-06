@@ -1,4 +1,3 @@
-import dev.detekt.gradle.Detekt
 import org.gradle.kotlin.dsl.sourceSets
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -15,7 +14,10 @@ repositories {
     mavenLocal()
 }
 
-val jooqGenerator = sourceSets.create("jooqGenerator")
+apply(from = "scripts/detekt.gradle.kts")
+apply(from = "scripts/generate-jooq.gradle.kts")
+apply(from = "scripts/generate-protobuf.gradle.kts")
+
 val integrationTest = sourceSets.getByName("integrationTest")
 configurations[integrationTest.implementationConfigurationName].extendsFrom(configurations.testImplementation.get())
 configurations[integrationTest.runtimeOnlyConfigurationName].extendsFrom(configurations.testRuntimeOnly.get())
@@ -34,14 +36,34 @@ val integrationTestTask = tasks.register<Test>("integrationTest") {
     dependsOn("quarkusBuild")
 }
 
-val migrationsDirectory = layout.projectDirectory.dir("src/main/resources/db/migration")
-val jooqOutputDirectory = layout.projectDirectory.dir("src/quarkus-generated-sources/java")
+val nativeImageTest = sourceSets.create("nativeImageTest") {
+    kotlin.srcDir("src/nativeTest/kotlin")
+}
+configurations[nativeImageTest.implementationConfigurationName].extendsFrom(configurations.testImplementation.get())
+configurations[nativeImageTest.runtimeOnlyConfigurationName].extendsFrom(configurations.testRuntimeOnly.get())
+nativeImageTest.compileClasspath += sourceSets.main.get().output
+nativeImageTest.runtimeClasspath += sourceSets.main.get().output
+
+val nativeTestTask = tasks.register<Test>("nativeTest") {
+    description = "Runs tests against the native executable."
+    group = "verification"
+    testClassesDirs = nativeImageTest.output.classesDirs
+    classpath = nativeImageTest.runtimeClasspath
+    useJUnitPlatform()
+    shouldRunAfter(integrationTestTask)
+    dependsOn("quarkusBuild")
+
+    val nativeRunner = layout.buildDirectory.file("${project.name}-${project.version}-runner")
+    inputs.file(nativeRunner)
+    systemProperty("native.runner.path", nativeRunner.get().asFile.absolutePath)
+}
 
 dependencies {
     implementation(enforcedPlatform(libs.io.quarkus.platform.quarkus.bom))
 
     // Kotlin и CDI
     implementation(libs.io.quarkus.quarkus.kotlin)
+    implementation(libs.io.quarkus.quarkus.container.image.docker)
     implementation(libs.org.jetbrains.kotlin.kotlin.stdlib.jdk8)
     implementation(libs.io.quarkus.quarkus.arc)
 
@@ -71,6 +93,8 @@ dependencies {
     implementation(libs.org.jooq.jooq.kotlin.coroutines)
 
     // Реактивный доступ к PostgreSQL
+    implementation(libs.io.micrometer.micrometer.core)
+    implementation(libs.org.locationtech.jts.core)
     implementation(libs.org.postgresql.r2dbc.postgresql)
     implementation(libs.io.r2dbc.r2dbc.pool)
     implementation(libs.org.jetbrains.kotlinx.kotlinx.coroutines.reactive)
@@ -84,19 +108,6 @@ dependencies {
 
     detektPlugins(libs.dev.detekt.rules.ktlint.wrapper)
 
-    add(jooqGenerator.implementationConfigurationName, enforcedPlatform(libs.io.quarkus.platform.quarkus.bom))
-    add(jooqGenerator.implementationConfigurationName, libs.org.jooq.jooq.codegen)
-    add(jooqGenerator.implementationConfigurationName, libs.org.flywaydb.flyway.core)
-    add(jooqGenerator.implementationConfigurationName, libs.org.flywaydb.flyway.database.postgresql)
-    add(jooqGenerator.implementationConfigurationName, libs.org.postgresql.postgresql)
-    add(jooqGenerator.implementationConfigurationName, libs.org.testcontainers.testcontainers.postgresql)
-    add(jooqGenerator.runtimeOnlyConfigurationName, libs.org.slf4j.slf4j.simple)
-}
-
-detekt {
-    buildUponDefaultConfig = true
-    config.setFrom(layout.projectDirectory.file("config/detekt/detekt.yml"))
-    parallel = true
 }
 
 val lintDependencyDeclarations by tasks.registering {
@@ -106,6 +117,9 @@ val lintDependencyDeclarations by tasks.registering {
     val gradleScripts = files(
         layout.projectDirectory.file("build.gradle.kts"),
         layout.projectDirectory.file("settings.gradle.kts"),
+        layout.projectDirectory.dir("scripts").asFileTree.matching {
+            include("*.gradle.kts")
+        },
     )
     inputs.files(gradleScripts)
 
@@ -138,21 +152,10 @@ val lintDependencyDeclarations by tasks.registering {
     }
 }
 
-tasks.named<Detekt>("detekt") {
-    source(layout.projectDirectory.dir("src/integrationTest/kotlin"))
-    classpath.setFrom(
-        configurations.named("compileClasspath"),
-        configurations.named("testCompileClasspath"),
-        configurations.named("integrationTestCompileClasspath"),
-        sourceSets.main.get().output,
-        sourceSets.test.get().output,
-    )
-    jvmTarget.set("21")
-}
-
 tasks.named("check") {
     dependsOn(lintDependencyDeclarations)
     dependsOn(integrationTestTask)
+    dependsOn(nativeTestTask)
 }
 
 group = "ru.itmo"
@@ -181,35 +184,5 @@ kotlin {
 }
 
 sourceSets.main {
-    java.srcDir(jooqOutputDirectory)
-}
-
-val generateJooq = tasks.register<JavaExec>("generateJooq") {
-    group = "code generation"
-    description = "Migrates a Testcontainers PostgreSQL database and generates jOOQ sources."
-
-    dependsOn(jooqGenerator.classesTaskName)
-    classpath = jooqGenerator.runtimeClasspath
-    mainClass = "ru.itmo.pluginmanager.codegen.JooqGenerator"
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-
-    args(
-        migrationsDirectory.asFile.absolutePath,
-        jooqOutputDirectory.asFile.absolutePath,
-        "ru.itmo.pluginmanager.jooq.generated"
-    )
-
-    inputs.dir(migrationsDirectory)
-    inputs.files(jooqGenerator.allSource)
-    outputs.dir(jooqOutputDirectory)
-}
-
-tasks.named("compileJava") {
-    dependsOn(generateJooq)
-}
-
-tasks.named("compileKotlin") {
-    dependsOn(generateJooq)
+    kotlin.srcDir(layout.buildDirectory.dir("generated/sources/protobuf/main/kotlin"))
 }

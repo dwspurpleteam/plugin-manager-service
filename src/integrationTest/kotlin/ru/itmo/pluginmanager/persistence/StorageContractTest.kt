@@ -24,7 +24,6 @@ import ru.itmo.pluginmanager.domain.ActivationRequest
 import ru.itmo.pluginmanager.domain.ActivationRoute
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
-import ru.itmo.pluginmanager.domain.MediaType
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
 import ru.itmo.pluginmanager.worker.WorkKind
@@ -159,7 +158,6 @@ class StorageContractTest {
                 allowedEventTypes = null,
                 allowedEventGroups = null,
                 healthcheckUrl = "https://example.com/health",
-                mediaTypes = setOf(MediaType.AUDIO),
             ),
         )
         store.activate(lease, Instant.EPOCH)
@@ -199,7 +197,6 @@ class StorageContractTest {
                 allowedEventTypes = null,
                 allowedEventGroups = null,
                 healthcheckUrl = "https://example.com/health",
-                mediaTypes = emptySet(),
             ),
         )
         store.activate(lease, Instant.EPOCH)

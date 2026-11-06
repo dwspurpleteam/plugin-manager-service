@@ -7,6 +7,7 @@ import ru.itmo.pluginmanager.domain.ActivationRequest
 import ru.itmo.pluginmanager.domain.ActivationRoute
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
+import ru.itmo.pluginmanager.domain.MediaType
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.RegistrationResult
 import ru.itmo.pluginmanager.domain.validateIdentifier
@@ -14,8 +15,11 @@ import ru.itmo.pluginmanager.persistence.ActivationStore
 import java.util.UUID
 
 @ApplicationScoped
-class ActivationServiceImpl(private val store: ActivationStore, private val config: PluginManagerConfig) :
-    ActivationService {
+class ActivationServiceImpl(
+    private val store: ActivationStore,
+    private val config: PluginManagerConfig,
+    private val configurations: ConfigurationService,
+) : ActivationService {
     override suspend fun register(request: ActivationRequest): RegistrationResult {
         listOfNotNull(
             request.callId,
@@ -42,7 +46,11 @@ class ActivationServiceImpl(private val store: ActivationStore, private val conf
         return route ?: throw PluginManagerException(ErrorCode.INTERNAL_ERROR, "Active route is missing")
     }
 
-    override suspend fun mediaTypes(activationId: UUID) = signalRoute(activationId).mediaTypes
+    override suspend fun mediaTypes(activationId: UUID): Set<MediaType> {
+        val activation = get(activationId)
+        requireActive(activation)
+        return configurations.get(requireNotNull(activation.selection)).manifest.backend.media.input
+    }
 
     private fun requireActive(activation: Activation) {
         val code = when (activation.state) {

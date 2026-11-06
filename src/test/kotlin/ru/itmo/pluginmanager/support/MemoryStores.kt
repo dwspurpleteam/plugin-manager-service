@@ -35,6 +35,9 @@ class MemoryStores :
 
     override suspend fun register(request: ActivationRequest) = RegistrationResult(activation.activationId, true)
     override suspend fun find(activationId: UUID) = activation.takeIf { it.activationId == activationId }
+    override suspend fun findActiveByCall(callId: String) = listOf(activation).filter {
+        it.request.callId == callId && it.state == ActivationState.ACTIVE
+    }
     override suspend fun route(activationId: UUID) = savedRoute
     override suspend fun pinSelection(lease: WorkLease, selection: PluginSelection) {
         activation = activation.copy(selection = selection)
