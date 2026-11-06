@@ -69,6 +69,7 @@ class DefaultActivationProcessor(
                 allowedEventTypes,
                 manifest.backend.events.availableEventGroups.takeIf { allowedEventTypes == null },
                 manifest.backend.healthUrl,
+                manifest.backend.media.input,
             ).also { store.saveRoute(lease, it) }
         }
         if (!health.check(route.healthcheckUrl)) {

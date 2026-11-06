@@ -22,6 +22,7 @@ import java.time.ZoneOffset
 import java.util.UUID
 import ru.itmo.pluginmanager.jooq.generated.enums.ActivationState as DatabaseActivationState
 import ru.itmo.pluginmanager.jooq.generated.enums.ActivationWorkKind as DatabaseActivationWorkKind
+import ru.itmo.pluginmanager.jooq.generated.enums.MediaType as DatabaseMediaType
 
 @ApplicationScoped
 class JooqActivationStore(private val transaction: JooqTransaction) : ActivationStore {
@@ -101,6 +102,10 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
                 .set(ACTIVATION_ROUTE.ALLOWED_EVENT_TYPES, route.allowedEventTypes?.sorted()?.toTypedArray())
                 .set(ACTIVATION_ROUTE.ALLOWED_EVENT_GROUPS, route.allowedEventGroups?.sorted()?.toTypedArray())
                 .set(ACTIVATION_ROUTE.HEALTHCHECK_URL, route.healthcheckUrl)
+                .set(
+                    ACTIVATION_ROUTE.MEDIA_TYPES,
+                    route.mediaTypes.map { DatabaseMediaType.valueOf(it.name) }.sortedBy { it.name }.toTypedArray(),
+                )
                 .onConflict(ACTIVATION_ROUTE.ACTIVATION_ID).doNothing().awaitSingle()
         }
     }

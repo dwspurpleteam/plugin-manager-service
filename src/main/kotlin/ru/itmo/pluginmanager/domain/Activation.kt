@@ -51,6 +51,7 @@ data class ActivationRoute(
     val allowedEventTypes: Set<String>?,
     val allowedEventGroups: Set<String>?,
     val healthcheckUrl: String,
+    val mediaTypes: Set<MediaType>,
 )
 
 data class RegistrationResult(val activationId: UUID, val created: Boolean)

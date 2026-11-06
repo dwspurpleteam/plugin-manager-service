@@ -9,6 +9,7 @@ import ru.itmo.pluginmanager.domain.ActivationRequest
 import ru.itmo.pluginmanager.domain.ActivationRoute
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
+import ru.itmo.pluginmanager.domain.MediaType
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
 import ru.itmo.pluginmanager.jooq.generated.Tables.ACTIVATION_ROUTE
@@ -94,5 +95,6 @@ internal suspend fun DSLContext.readRoute(id: UUID): ActivationRoute? =
             it.allowedEventTypes?.toSet(),
             it.allowedEventGroups?.toSet(),
             it.healthcheckUrl,
+            it.mediaTypes.map { mediaType -> MediaType.valueOf(mediaType.name) }.toSet(),
         )
     }

@@ -158,6 +158,7 @@ class StorageContractTest {
                 allowedEventTypes = null,
                 allowedEventGroups = null,
                 healthcheckUrl = "https://example.com/health",
+                mediaTypes = emptySet(),
             ),
         )
         store.activate(lease, Instant.EPOCH)
@@ -197,6 +198,7 @@ class StorageContractTest {
                 allowedEventTypes = null,
                 allowedEventGroups = null,
                 healthcheckUrl = "https://example.com/health",
+                mediaTypes = emptySet(),
             ),
         )
         store.activate(lease, Instant.EPOCH)

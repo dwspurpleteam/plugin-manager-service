@@ -9,7 +9,7 @@ val javaToolchains = extensions.getByType<JavaToolchainService>()
 val libraries = extensions.getByType<VersionCatalogsExtension>().named("libs")
 val jooqGenerator = sourceSets.create("jooqGenerator")
 val migrationsDirectory = layout.projectDirectory.dir("src/main/resources/db/migration")
-val jooqOutputDirectory = layout.buildDirectory.dir("generated/sources/jooq/main/java")
+val jooqOutputDirectory = layout.projectDirectory.dir("src/quarkus-generated-sources/java")
 
 dependencies {
     add(jooqGenerator.implementationConfigurationName, enforcedPlatform(libraries.findLibrary("io.quarkus.platform.quarkus.bom").get()))
@@ -36,19 +36,11 @@ val generateJooq = tasks.register<JavaExec>("generateJooq") {
 
     args(
         migrationsDirectory.asFile.absolutePath,
-        jooqOutputDirectory.get().asFile.absolutePath,
+        jooqOutputDirectory.asFile.absolutePath,
         "ru.itmo.pluginmanager.jooq.generated"
     )
 
     inputs.dir(migrationsDirectory)
     inputs.files(jooqGenerator.allSource)
     outputs.dir(jooqOutputDirectory)
-}
-
-tasks.named("compileJava") {
-    dependsOn(generateJooq)
-}
-
-tasks.named("compileKotlin") {
-    dependsOn(generateJooq)
 }
