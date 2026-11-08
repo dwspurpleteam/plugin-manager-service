@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.postgresql.PostgreSQLContainer
+import ru.itmo.pluginmanager.domain.PluginEvents
 import ru.itmo.pluginmanager.support.manifest
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -20,6 +21,7 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 class ProcessRecoveryTest {
     private val mapper = ObjectMapper().registerKotlinModule()
@@ -38,6 +40,7 @@ class ProcessRecoveryTest {
                 postgres.start()
                 redis.start()
                 val metadataRequests = AtomicInteger()
+                val activationMessage = AtomicReference<String>()
                 val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
                 server.createContext("/") { exchange ->
                     val body = when (exchange.requestURI.path) {
@@ -49,9 +52,24 @@ class ProcessRecoveryTest {
 
                         "/health" -> "{}"
 
-                        else -> mapper.writeValueAsString(
-                            manifest(health = "http://127.0.0.1:${server.address.port}/health"),
-                        )
+                        "/activation" -> {
+                            activationMessage.set(exchange.requestBody.bufferedReader().readText())
+                            "{}"
+                        }
+
+                        else -> {
+                            val plugin = manifest(health = "http://127.0.0.1:${server.address.port}/health")
+                            mapper.writeValueAsString(
+                                plugin.copy(
+                                    backend = plugin.backend.copy(
+                                        events = PluginEvents(
+                                            "http://127.0.0.1:${server.address.port}/activation",
+                                            setOf("participant.joined"),
+                                        ),
+                                    ),
+                                ),
+                            )
+                        }
                     }
                     exchange.responseHeaders.add("Content-Type", "application/json")
                     exchange.sendResponseHeaders(200, body.toByteArray().size.toLong())
@@ -59,7 +77,7 @@ class ProcessRecoveryTest {
                 }
                 server.start()
                 try {
-                    recover(postgres, redis, server, metadataRequests)
+                    recover(postgres, redis, server, metadataRequests, activationMessage)
                 } finally {
                     server.stop(0)
                 }
@@ -72,6 +90,7 @@ class ProcessRecoveryTest {
         redis: GenericContainer<*>,
         server: HttpServer,
         metadataRequests: AtomicInteger,
+        activationMessage: AtomicReference<String>,
     ) {
         val port = ServerSocket(0).use { it.localPort }
         val base = "http://127.0.0.1:$port"
@@ -88,7 +107,12 @@ class ProcessRecoveryTest {
                           "pluginId":"plugin",
                           "requestedBy":"user",
                           "idempotencyKey":"key",
-                          "pluginRegistryId":"recovery"
+                          "pluginRegistryId":"recovery",
+                          "initialContext":{
+                            "callId":"recovery",
+                            "participants":[],
+                            "snapshot":{"capturedAt":"2026-11-08T12:00:00Z","source":"call-backend","consistency":"point-in-time"}
+                          }
                         }
                         """.trimIndent(),
                     ),
@@ -105,6 +129,8 @@ class ProcessRecoveryTest {
             }
             assertEquals("1.0.0", mapper.readTree(get("$base/v1/activations/$id").body())["pluginVersion"].asText())
             assertEquals(200, get("$base/v1/activations/$id/signal-route").statusCode())
+            assertEquals("recovery", mapper.readTree(activationMessage.get())["initialContext"]["callId"].asText())
+            assertEquals("1.0", mapper.readTree(activationMessage.get())["schemaVersion"].asText())
             val before = metadataRequests.get()
             stop(process)
             server.createContext("/v1/plugins") { exchange ->

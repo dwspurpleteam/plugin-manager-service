@@ -2,6 +2,95 @@
   "openapi" : "3.1.0",
   "components" : {
     "schemas" : {
+      "ActivationContext" : {
+        "type" : "object",
+        "required" : [ "callId", "snapshot" ],
+        "properties" : {
+          "callId" : {
+            "type" : "string"
+          },
+          "roomName" : {
+            "type" : [ "string", "null" ]
+          },
+          "startDate" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "endDate" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "participantCount" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "recordingActive" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "maxParticipants" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "participants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ActivationParticipant"
+            }
+          },
+          "snapshot" : {
+            "$ref" : "#/components/schemas/ActivationContextSnapshot"
+          }
+        }
+      },
+      "ActivationContextSnapshot" : {
+        "type" : "object",
+        "required" : [ "capturedAt", "source", "consistency" ],
+        "properties" : {
+          "capturedAt" : {
+            "$ref" : "#/components/schemas/Instant"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "consistency" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ActivationParticipant" : {
+        "type" : "object",
+        "required" : [ "participantIdentity" ],
+        "properties" : {
+          "participantIdentity" : {
+            "type" : "string"
+          },
+          "participantName" : {
+            "type" : [ "string", "null" ]
+          },
+          "externalId" : {
+            "type" : [ "string", "null" ]
+          },
+          "metadata" : {
+            "type" : [ "string", "null" ]
+          },
+          "role" : {
+            "type" : [ "string", "null" ]
+          },
+          "joinDate" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "audioActive" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "videoActive" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "screenShareActive" : {
+            "type" : [ "boolean", "null" ]
+          }
+        }
+      },
       "ActivationResponse" : {
         "type" : "object",
         "required" : [ "activationId", "callId", "pluginId", "requestedVersion", "requestedRegistryId", "requestedBy", "pluginVersion", "registryId", "state", "stateChangedAt", "failureCode" ],
@@ -215,6 +304,13 @@
           },
           "pluginRegistryId" : {
             "type" : [ "string", "null" ]
+          },
+          "initialContext" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ActivationContext"
+            }, {
+              "type" : "null"
+            } ]
           }
         }
       },

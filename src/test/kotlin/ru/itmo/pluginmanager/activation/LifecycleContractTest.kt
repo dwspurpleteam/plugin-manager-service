@@ -9,8 +9,11 @@ import org.junit.jupiter.api.Test
 import ru.itmo.pluginmanager.application.ActivationService
 import ru.itmo.pluginmanager.application.ActivationServiceImpl
 import ru.itmo.pluginmanager.application.ConfigurationService
+import ru.itmo.pluginmanager.domain.ActivationContext
+import ru.itmo.pluginmanager.domain.ActivationContextSnapshot
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
+import ru.itmo.pluginmanager.domain.PluginActivationMessage
 import ru.itmo.pluginmanager.domain.PluginConfiguration
 import ru.itmo.pluginmanager.domain.PluginEvents
 import ru.itmo.pluginmanager.domain.PluginManagerException
@@ -24,6 +27,7 @@ import ru.itmo.pluginmanager.worker.WorkerProcessor
 import ru.itmo.pluginmanager.worker.activation.DefaultActivationProcessor
 import ru.itmo.pluginmanager.worker.health.DefaultHealthcheckProcessor
 import java.time.Clock
+import java.time.Instant
 
 class LifecycleContractTest {
     private val store = MemoryStores()
@@ -32,6 +36,12 @@ class LifecycleContractTest {
     private var configuredManifest = manifest()
     private val health = object : PluginHealthcheck {
         override suspend fun check(url: String) = healthy
+    }
+    private var sentMessage: PluginActivationMessage? = null
+    private val notifier = object : PluginActivationNotifier {
+        override suspend fun notify(endpoint: String, message: PluginActivationMessage) {
+            sentMessage = message
+        }
     }
     private val configurations = object : ConfigurationService {
         override suspend fun resolve(pluginId: String, pluginVersion: String?, registryId: String?): PluginSelection {
@@ -46,6 +56,7 @@ class LifecycleContractTest {
         store,
         configurations,
         health,
+        notifier,
         policy(),
         Clock.systemUTC(),
     )
@@ -89,6 +100,32 @@ class LifecycleContractTest {
 
         assertEquals(null, store.savedRoute!!.allowedEventTypes)
         assertEquals(setOf("participants", "recording"), store.savedRoute!!.allowedEventGroups)
+    }
+
+    /**
+     * Тест проверяет передачу сохранённого доверенного контекста в сообщение Plugin Backend.
+     * Ожидаемый результат: сообщение содержит идентификаторы выбранного плагина, звонка и исходный снимок.
+     */
+    @Test
+    fun `activation sends persisted initial context to plugin backend`() = runBlocking {
+        val context = ActivationContext(
+            callId = "call",
+            roomName = "Team meeting",
+            participantCount = 1,
+            participants = emptyList(),
+            snapshot = ActivationContextSnapshot(Instant.EPOCH, "call-backend", "point-in-time"),
+        )
+        store.activation = store.activation.copy(request = store.activation.request.copy(initialContext = context))
+
+        processor().process(store.lease)
+
+        assertEquals(context, sentMessage!!.initialContext)
+        assertEquals(store.activation.activationId, sentMessage!!.activationId)
+        assertEquals("plugin", sentMessage!!.pluginId)
+        assertEquals("1.0.0", sentMessage!!.pluginVersion)
+        assertEquals("registry", sentMessage!!.registryId)
+        assertEquals("call", sentMessage!!.callId)
+        assertEquals("1.0", sentMessage!!.schemaVersion)
     }
 
     /**

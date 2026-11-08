@@ -3,12 +3,15 @@ package ru.itmo.pluginmanager.worker.activation
 import jakarta.enterprise.context.ApplicationScoped
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
+import ru.itmo.pluginmanager.activation.PluginActivationNotifier
 import ru.itmo.pluginmanager.application.ConfigurationService
 import ru.itmo.pluginmanager.config.PluginManagerConfig
 import ru.itmo.pluginmanager.domain.ActivationRoute
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
+import ru.itmo.pluginmanager.domain.PluginActivationMessage
 import ru.itmo.pluginmanager.domain.PluginManagerException
+import ru.itmo.pluginmanager.domain.PluginSelection
 import ru.itmo.pluginmanager.health.PluginHealthcheck
 import ru.itmo.pluginmanager.persistence.ActivationStore
 import ru.itmo.pluginmanager.persistence.WorkStore
@@ -19,12 +22,14 @@ import java.time.Clock
 import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
 
+@Suppress("LongParameterList")
 @ApplicationScoped
 class DefaultActivationProcessor(
     private val store: ActivationStore,
     private val work: WorkStore,
     private val configurations: ConfigurationService,
     private val health: PluginHealthcheck,
+    private val notifier: PluginActivationNotifier,
     private val config: PluginManagerConfig,
     private val clock: Clock,
 ) : WorkerProcessor {
@@ -74,13 +79,27 @@ class DefaultActivationProcessor(
         if (!health.check(route.healthcheckUrl)) {
             throw PluginManagerException(ErrorCode.HEALTHCHECK_FAILED, "Activation healthcheck failed")
         }
-        sendInitialActivationMessage(route)
+        sendInitialActivationMessage(activation, checkNotNull(store.find(lease.activationId)?.selection), route)
         store.activate(lease, clock.instant().plus(config.health().interval()))
     }
 
-    private fun sendInitialActivationMessage(
-        @Suppress("UNUSED_PARAMETER") route: ActivationRoute,
-    ) = Unit
+    private suspend fun sendInitialActivationMessage(
+        activation: ru.itmo.pluginmanager.domain.Activation,
+        selection: PluginSelection,
+        route: ActivationRoute,
+    ) {
+        notifier.notify(
+            route.signalDst,
+            PluginActivationMessage(
+                activationId = activation.activationId,
+                pluginId = selection.pluginId,
+                pluginVersion = selection.pluginVersion,
+                registryId = selection.registryId,
+                callId = activation.request.callId,
+                initialContext = activation.request.initialContext,
+            ),
+        )
+    }
 
     private suspend fun failedAttempt(lease: WorkLease, code: ErrorCode) {
         val permanent = code in setOf(

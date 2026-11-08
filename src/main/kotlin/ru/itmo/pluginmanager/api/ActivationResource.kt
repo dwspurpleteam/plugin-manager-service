@@ -18,6 +18,7 @@ class ActivationResource(private val service: ActivationService) : ActivationApi
                 request.idempotencyKey,
                 request.pluginVersion,
                 request.pluginRegistryId,
+                request.initialContext,
             ),
         )
         return Response.status(if (result.created) Response.Status.ACCEPTED else Response.Status.OK)
