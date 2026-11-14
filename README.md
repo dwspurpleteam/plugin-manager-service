@@ -5,7 +5,11 @@ and caches manifests, exposes signal routes and input media requirements, monito
 availability and retains state history. It does not forward signals or media.
 
 Schema, package layout and public contracts are documented in
-[docs/plugin-manager-contracts.md](docs/plugin-manager-contracts.md).
+[docs/plugin-manager-contracts.md](docs/plugin-manager-contracts.md). Activation
+context input and Plugin Backend delivery are described in
+[docs/activation-context.md](docs/activation-context.md). The generated API
+schemas are available as [OpenAPI YAML](docs/openapi/openapi.yaml) and
+[OpenAPI JSON](docs/openapi/openapi.json).
 
 Unit tests are located in `src/test/kotlin` (`./gradlew test`). JVM integration tests
 are located in `src/integrationTest/kotlin` (`./gradlew integrationTest`) and use
