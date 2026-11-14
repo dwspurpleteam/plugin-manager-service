@@ -1,10 +1,12 @@
 package ru.itmo.pluginmanager.persistence
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.enterprise.context.ApplicationScoped
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
+import org.jooq.JSONB
 import ru.itmo.pluginmanager.database.JooqTransaction
 import ru.itmo.pluginmanager.domain.ActivationRequest
 import ru.itmo.pluginmanager.domain.ActivationRoute
@@ -24,8 +26,8 @@ import ru.itmo.pluginmanager.jooq.generated.enums.ActivationState as DatabaseAct
 import ru.itmo.pluginmanager.jooq.generated.enums.ActivationWorkKind as DatabaseActivationWorkKind
 
 @ApplicationScoped
-class JooqActivationStore(private val transaction: JooqTransaction) : ActivationStore {
-    override suspend fun register(request: ActivationRequest): RegistrationResult = transaction.transaction { dsl ->
+class JooqActivationStore(private val tx: JooqTransaction, private val mapper: ObjectMapper) : ActivationStore {
+    override suspend fun register(request: ActivationRequest): RegistrationResult = tx.transaction { dsl ->
         val id = UUID.randomUUID()
         val inserted = dsl.insertInto(PLUGIN_ACTIVATION)
             .set(PLUGIN_ACTIVATION.ACTIVATION_ID, id)
@@ -35,11 +37,17 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
             .set(PLUGIN_ACTIVATION.IDEMPOTENCY_KEY, request.idempotencyKey)
             .set(PLUGIN_ACTIVATION.REQUESTED_VERSION, request.pluginVersion)
             .set(PLUGIN_ACTIVATION.REQUESTED_REGISTRY_ID, request.pluginRegistryId)
+            .set(
+                PLUGIN_ACTIVATION.INITIAL_CONTEXT,
+                request.initialContext?.let { context ->
+                    JSONB.valueOf(mapper.writeValueAsString(context))
+                },
+            )
             .set(PLUGIN_ACTIVATION.STATE, DatabaseActivationState.ACTIVATING)
             .onConflict(PLUGIN_ACTIVATION.CALL_ID, PLUGIN_ACTIVATION.IDEMPOTENCY_KEY).doNothing().awaitSingle()
         if (inserted == 0) {
             val old = dsl.selectFrom(PLUGIN_ACTIVATION).where(PLUGIN_ACTIVATION.CALL_ID.eq(request.callId))
-                .and(PLUGIN_ACTIVATION.IDEMPOTENCY_KEY.eq(request.idempotencyKey)).awaitSingle().toDomain()
+                .and(PLUGIN_ACTIVATION.IDEMPOTENCY_KEY.eq(request.idempotencyKey)).awaitSingle().toDomain(mapper)
             if (old.request != request) storageError(ErrorCode.IDEMPOTENCY_CONFLICT)
             RegistrationResult(old.activationId, false)
         } else {
@@ -55,26 +63,26 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
         }
     }
 
-    override suspend fun find(activationId: UUID) = transaction.transaction { dsl ->
+    override suspend fun find(activationId: UUID) = tx.transaction { dsl ->
         dsl.selectFrom(PLUGIN_ACTIVATION)
             .where(PLUGIN_ACTIVATION.ACTIVATION_ID.eq(activationId))
-            .awaitFirstOrNull()?.toDomain()
+            .awaitFirstOrNull()?.toDomain(mapper)
     }
 
-    override suspend fun findActiveByCall(callId: String) = transaction.transaction { dsl ->
+    override suspend fun findActiveByCall(callId: String) = tx.transaction { dsl ->
         dsl.selectFrom(PLUGIN_ACTIVATION)
             .where(PLUGIN_ACTIVATION.CALL_ID.eq(callId))
             .and(PLUGIN_ACTIVATION.STATE.eq(DatabaseActivationState.ACTIVE))
             .asFlow()
             .toList()
-            .map { it.toDomain() }
+            .map { it.toDomain(mapper) }
     }
 
-    override suspend fun route(activationId: UUID) = transaction.transaction { it.readRoute(activationId) }
+    override suspend fun route(activationId: UUID) = tx.transaction { it.readRoute(activationId) }
 
     override suspend fun pinSelection(lease: WorkLease, selection: PluginSelection) {
-        transaction.transaction { dsl ->
-            val activation = dsl.lockActivation(lease).toDomain()
+        tx.transaction { dsl ->
+            val activation = dsl.lockActivation(lease).toDomain(mapper)
             if (activation.state != ActivationState.ACTIVATING || selection.pluginId != activation.request.pluginId) {
                 storageError()
             }
@@ -88,7 +96,7 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
     }
 
     override suspend fun saveRoute(lease: WorkLease, route: ActivationRoute) {
-        transaction.transaction { dsl ->
+        tx.transaction { dsl ->
             val activation = dsl.lockActivation(lease)
             if (activation.state != DatabaseActivationState.ACTIVATING || activation.resolvedVersion == null ||
                 route.activationId != lease.activationId
@@ -106,7 +114,7 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
     }
 
     override suspend fun activate(lease: WorkLease, nextHealthcheckAt: Instant) {
-        transaction.transaction { dsl ->
+        tx.transaction { dsl ->
             val activation = dsl.lockActivation(lease)
             if (activation.state != DatabaseActivationState.ACTIVATING ||
                 activation.resolvedVersion == null || dsl.readRoute(
@@ -130,7 +138,7 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
     }
 
     override suspend fun fail(lease: WorkLease, reason: ErrorCode) {
-        transaction.transaction { dsl ->
+        tx.transaction { dsl ->
             val activation = dsl.lockActivation(lease)
             dsl.changeState(activation, ActivationState.FAILED, reason)
             dsl.deleteFrom(ACTIVATION_WORK)

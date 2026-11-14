@@ -37,6 +37,43 @@ class ApiContractTest {
     }
 
     /**
+     * Тест проверяет контракт регистрации с доверенным снимком и обратную совместимость без него.
+     * Ожидаемый результат: корректный снимок принимается, несовпадающий callId отклоняется, старый запрос работает.
+     */
+    @Test
+    fun `registration accepts matching initial context`() {
+        val callId = UUID.randomUUID().toString()
+        val body = mapOf(
+            "callId" to callId,
+            "pluginId" to "plugin",
+            "requestedBy" to "user",
+            "idempotencyKey" to "context-key",
+            "initialContext" to mapOf(
+                "callId" to callId,
+                "participants" to emptyList<Any>(),
+                "snapshot" to mapOf(
+                    "capturedAt" to "2026-11-08T12:00:00Z",
+                    "source" to "call-backend",
+                    "consistency" to "point-in-time",
+                ),
+            ),
+        )
+        given().contentType("application/json").body(body).post("/v1/activations").then().statusCode(202)
+        val mismatched = body.toMutableMap()
+        mismatched["idempotencyKey"] = "mismatched-context-key"
+        mismatched["initialContext"] = mapOf(
+            "callId" to "another-call",
+            "participants" to emptyList<Any>(),
+            "snapshot" to mapOf(
+                "capturedAt" to "2026-11-08T12:00:00Z",
+                "source" to "call-backend",
+                "consistency" to "point-in-time",
+            ),
+        )
+        given().contentType("application/json").body(mismatched).post("/v1/activations").then().statusCode(400)
+    }
+
+    /**
      * Тест проверяет ошибки входных данных и отсутствие активации.
      * Ожидаемый результат: некорректный JSON и UUID дают 400; неизвестная активация даёт 404.
      */

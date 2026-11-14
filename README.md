@@ -5,7 +5,11 @@ and caches manifests, exposes signal routes and input media requirements, monito
 availability and retains state history. It does not forward signals or media.
 
 Schema, package layout and public contracts are documented in
-[docs/plugin-manager-contracts.md](docs/plugin-manager-contracts.md).
+[docs/plugin-manager-contracts.md](docs/plugin-manager-contracts.md). Activation
+context input and Plugin Backend delivery are described in
+[docs/activation-context.md](docs/activation-context.md). The generated API
+schemas are available as [OpenAPI YAML](docs/openapi/openapi.yaml) and
+[OpenAPI JSON](docs/openapi/openapi.json).
 
 Unit tests are located in `src/test/kotlin` (`./gradlew test`). JVM integration tests
 are located in `src/integrationTest/kotlin` (`./gradlew integrationTest`) and use
@@ -41,7 +45,7 @@ java -Dplugin-manager.registries.example-registry.url=https://registry.example.c
 
 ```shell
 curl -i -H 'Content-Type: application/json' http://localhost:8080/v1/activations \
-  -d '{"callId":"call-10","pluginId":"example-plugin","requestedBy":"user-12","idempotencyKey":"activate-1"}'
+  -d '{"callId":"call-10","pluginId":"example-plugin","requestedBy":"user-12","idempotencyKey":"activate-1","initialContext":{"callId":"call-10","participants":[],"snapshot":{"capturedAt":"2026-11-08T12:00:00Z","source":"call-backend","consistency":"point-in-time"}}}'
 ```
 
 Registration returns 202 with an activation ID without waiting for a registry or
@@ -49,6 +53,14 @@ healthcheck. Poll `/v1/activations/{activationId}`; only ACTIVE permits reading
 `/signal-route` and `/media-types`. Add `pluginVersion` for an exact version; omitted
 version selects the first suitable registry's current latest and pins it for that
 activation. Reuse a key only for an identical original request.
+
+`initialContext` is optional for backward compatibility. It is a trusted, durable
+per-call snapshot supplied by Call Backend; its `callId` must match the request. If
+it is absent, Plugin Manager sends `initialContext: null` to Plugin Backend. After a
+successful healthcheck, Plugin Manager POSTs schema version `1.0` to the selected
+manifest's `backend.events.event-url`: `activationId`, `pluginId`, `pluginVersion`,
+`registryId`, `callId` and `initialContext`. The context is deliberately platform
+neutral: it contains no room/track SIDs, API credentials or browser-originated data.
 
 The OpenAPI document is available at `/q/openapi`, and Swagger UI is available at
 `/swagger-ui` in development and packaged applications. Each build also writes

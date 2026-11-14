@@ -29,6 +29,12 @@ class ActivationServiceImpl(
             request.pluginVersion,
             request.pluginRegistryId,
         ).forEach(::validateIdentifier)
+        request.initialContext?.let { context ->
+            validateIdentifier(context.callId)
+            if (context.callId != request.callId) {
+                throw PluginManagerException(ErrorCode.INVALID_REQUEST, "Initial context callId does not match request")
+            }
+        }
         request.pluginRegistryId?.let {
             if (it !in config.registries()) throw PluginManagerException(ErrorCode.UNKNOWN_REGISTRY, "Unknown registry")
         }
