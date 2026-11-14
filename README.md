@@ -56,14 +56,9 @@ The OpenAPI document is available at `/q/openapi`, and Swagger UI is available a
 
 ## Metrics
 
-Prometheus can scrape the Micrometer endpoint at `GET /q/metrics`. It exposes
-standard JVM, process and HTTP server metrics in the OpenMetrics format, which
-Prometheus supports natively. The endpoint intentionally contains no business
-identifiers or request payloads.
-
-```shell
-curl -H 'Accept: application/openmetrics-text' http://localhost:8080/q/metrics
-```
+Prometheus metrics are exposed by Micrometer at `GET /q/metrics`. See the
+[application metrics reference](docs/metrics.md) for the complete metric list,
+types, semantics and scrape example.
 
 ## Verification
 
