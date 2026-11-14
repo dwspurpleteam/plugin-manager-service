@@ -26,6 +26,7 @@ import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
+import ru.itmo.pluginmanager.metrics.PluginManagerMetrics
 import ru.itmo.pluginmanager.worker.WorkKind
 import java.time.Duration
 import java.time.Instant
@@ -37,9 +38,12 @@ class StorageContractTest {
     @Inject
     lateinit var transaction: JooqTransaction
 
-    private fun storage(): ActivationStore = JooqActivationStore(transaction)
+    @Inject
+    lateinit var metrics: PluginManagerMetrics
 
-    private fun work(): WorkStore = JooqWorkStore(transaction)
+    private fun storage(): ActivationStore = JooqActivationStore(transaction, metrics)
+
+    private fun work(): WorkStore = JooqWorkStore(transaction, metrics)
 
     private fun maintenance(): MaintenanceStore = JooqMaintenanceStore(transaction)
 
