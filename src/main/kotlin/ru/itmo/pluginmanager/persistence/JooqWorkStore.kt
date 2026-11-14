@@ -9,6 +9,7 @@ import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.jooq.generated.Tables.ACTIVATION_WORK
 import ru.itmo.pluginmanager.jooq.generated.tables.records.ActivationWorkRecord
+import ru.itmo.pluginmanager.metrics.PluginManagerMetrics
 import ru.itmo.pluginmanager.worker.WorkKind
 import ru.itmo.pluginmanager.worker.WorkLease
 import java.time.Duration
@@ -18,7 +19,7 @@ import ru.itmo.pluginmanager.jooq.generated.enums.ActivationState as DatabaseAct
 import ru.itmo.pluginmanager.jooq.generated.enums.ActivationWorkKind as DatabaseActivationWorkKind
 
 @ApplicationScoped
-class JooqWorkStore(private val transaction: JooqTransaction) : WorkStore {
+class JooqWorkStore(private val transaction: JooqTransaction, private val metrics: PluginManagerMetrics) : WorkStore {
     override suspend fun claim(kind: WorkKind, limit: Int, leaseDuration: Duration): List<WorkLease> {
         require(limit > 0 && !leaseDuration.isNegative && !leaseDuration.isZero)
         return transaction.transaction { dsl ->
@@ -89,6 +90,7 @@ class JooqWorkStore(private val transaction: JooqTransaction) : WorkStore {
             val failures = if (healthy) 0 else work.consecutiveHealthFailures + 1
             if (failures >= failureThreshold) {
                 dsl.changeState(activation, ActivationState.FAILED, ErrorCode.HEALTHCHECK_FAILED)
+                metrics.pluginFailed(wasActive = true)
                 dsl.deleteFrom(
                     ACTIVATION_WORK,
                 ).where(ACTIVATION_WORK.ACTIVATION_ID.eq(lease.activationId)).awaitSingle()

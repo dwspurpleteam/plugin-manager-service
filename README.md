@@ -54,6 +54,12 @@ The OpenAPI document is available at `/q/openapi`, and Swagger UI is available a
 `/swagger-ui` in development and packaged applications. Each build also writes
 `openapi.yaml` and `openapi.json` to `build/generated/openapi`.
 
+## Metrics
+
+Prometheus metrics are exposed by Micrometer at `GET /q/metrics`. See the
+[application metrics reference](docs/metrics.md) for the complete metric list,
+types, semantics and scrape example.
+
 ## Verification
 
 Java 21 and a working Docker/Testcontainers environment are required, including for
