@@ -23,6 +23,7 @@ import ru.itmo.pluginmanager.database.JooqTransaction
 import ru.itmo.pluginmanager.database.PostgresTestResource
 import ru.itmo.pluginmanager.domain.ActivationContext
 import ru.itmo.pluginmanager.domain.ActivationContextSnapshot
+import ru.itmo.pluginmanager.domain.SnapshotConsistency
 import ru.itmo.pluginmanager.domain.ActivationRequest
 import ru.itmo.pluginmanager.domain.ActivationRoute
 import ru.itmo.pluginmanager.domain.ActivationState
@@ -109,7 +110,7 @@ class StorageContractTest {
         val context = ActivationContext(
             callId = "call",
             participants = emptyList(),
-            snapshot = ActivationContextSnapshot(Instant.EPOCH, "call-backend", "point-in-time"),
+            snapshot = ActivationContextSnapshot(Instant.EPOCH, "call-backend", SnapshotConsistency.POINT_IN_TIME),
         )
         val input = ActivationRequest("call", "plugin", "user", "key", initialContext = context)
         val store = storage()

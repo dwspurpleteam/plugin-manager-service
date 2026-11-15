@@ -53,7 +53,8 @@
             "type" : "string"
           },
           "consistency" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "point-in-time", "eventual", "partial" ]
           }
         }
       },
@@ -65,9 +66,6 @@
             "type" : "string"
           },
           "participantName" : {
-            "type" : [ "string", "null" ]
-          },
-          "externalId" : {
             "type" : [ "string", "null" ]
           },
           "metadata" : {

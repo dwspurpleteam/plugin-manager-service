@@ -57,6 +57,10 @@ components:
           type: string
         consistency:
           type: string
+          enum:
+          - point-in-time
+          - eventual
+          - partial
     ActivationParticipant:
       type: object
       required:
@@ -65,10 +69,6 @@ components:
         participantIdentity:
           type: string
         participantName:
-          type:
-          - string
-          - "null"
-        externalId:
           type:
           - string
           - "null"

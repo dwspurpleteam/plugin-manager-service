@@ -11,6 +11,7 @@ import ru.itmo.pluginmanager.application.ActivationServiceImpl
 import ru.itmo.pluginmanager.application.ConfigurationService
 import ru.itmo.pluginmanager.domain.ActivationContext
 import ru.itmo.pluginmanager.domain.ActivationContextSnapshot
+import ru.itmo.pluginmanager.domain.SnapshotConsistency
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginActivationMessage
@@ -113,7 +114,7 @@ class LifecycleContractTest {
             roomName = "Team meeting",
             participantCount = 1,
             participants = emptyList(),
-            snapshot = ActivationContextSnapshot(Instant.EPOCH, "call-backend", "point-in-time"),
+            snapshot = ActivationContextSnapshot(Instant.EPOCH, "call-backend", SnapshotConsistency.POINT_IN_TIME),
         )
         store.activation = store.activation.copy(request = store.activation.request.copy(initialContext = context))
 
