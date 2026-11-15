@@ -121,7 +121,7 @@ Generate the jOOQ model with:
 ```
 
 The task starts an ephemeral PostgreSQL Testcontainer, applies all Flyway migrations,
-and writes the generated Java model to `src/quarkus-generated-sources/java`. The output
+and writes the generated Java model to `build/generated/sources/jooq/main/java`. The output
 directory is intentionally excluded from Git and is also generated automatically before
 the project's Java or Kotlin compilation tasks.
 
@@ -168,21 +168,53 @@ If you want to build an _über-jar_, execute the following command:
 
 The application, packaged as an _über-jar_, is now runnable using `java -jar build/*-runner.jar`.
 
+### Building the JVM container image
+
+Java 21 and a running Docker daemon are required. The Quarkus `imageBuild` task
+packages the application and builds the image using
+`src/main/docker/Dockerfile.jvm`:
+
+```shell script
+./gradlew imageBuild \
+  -Dquarkus.container-image.build=true \
+  -Dquarkus.container-image.builder=docker \
+  -Dquarkus.container-image.group=local \
+  -Dquarkus.container-image.name=plugin-manage-service \
+  -Dquarkus.container-image.tag=jvm
+```
+
+The resulting local image is `local/plugin-manage-service:jvm`.
+
 ## Creating a native executable
 
-You can create a native executable using:
+Native compilation requires Docker and a running Docker daemon. The build first generates jOOQ and Protobuf sources, then produces the native runner:
 
 ```shell script
-./gradlew build -Dquarkus.native.enabled=true
+./gradlew nativeTest \
+  -Dquarkus.native.enabled=true \
+  -Dquarkus.native.container-build=true \
+  -Dquarkus.package.jar.enabled=false
 ```
 
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
+The command creates `build/plugin-manage-service-1.0.0-SNAPSHOT-runner` and runs the native-image liveness test against that executable.
+
+To build the executable without running native tests, use:
 
 ```shell script
-./gradlew build -Dquarkus.native.enabled=true -Dquarkus.native.container-build=true
+./gradlew quarkusBuild \
+  -Dquarkus.native.enabled=true \
+  -Dquarkus.native.container-build=true \
+  -Dquarkus.package.jar.enabled=false
 ```
 
-You can then execute your native executable with: `./build/plugin-manage-service-1.0.0-SNAPSHOT-runner`
+The Dockerfile is runtime-only and packages the prebuilt native runner; it does not run Gradle or Testcontainers during `docker build`:
+
+```shell script
+docker build -t plugin-manage-service:native .
+docker run --rm -p 8080:8080 -p 9000:9000 plugin-manage-service:native
+```
+
+The CI pipeline runs the `native-test` stage after JVM integration tests. It builds the native image in a container and executes `nativeTest`.
 
 If you want to learn more about building native executables, please consult <https://quarkus.io/guides/gradle-tooling>.
 

@@ -52,7 +52,8 @@ class LifecycleContractTest {
 
     /**
      * Тест проверяет завершение активации и повторное использование закреплённой версии.
-     * Ожидаемый результат: маршрут использует input-медиа, ACTIVE наступает после healthcheck, повтор не ищет latest.
+     * Ожидаемый результат: маршрут использует разрешения событий, ACTIVE наступает после healthcheck,
+     * повтор не ищет latest.
      */
     @Test
     fun `activation pins selection and requires successful probe`() = runBlocking {
@@ -63,7 +64,6 @@ class LifecycleContractTest {
         healthy = true
         processor().process(store.lease.copy(attemptCount = 2))
         assertEquals(ActivationState.ACTIVE, store.activation.state)
-        assertEquals(manifest().backend.media.input, store.savedRoute!!.mediaTypes)
         assertEquals(manifest().backend.events.availableEventTypes, store.savedRoute!!.allowedEventTypes)
         assertEquals(null, store.savedRoute!!.allowedEventGroups)
         assertEquals(WorkKind.ACTIVATE, processor().kind)
@@ -122,7 +122,7 @@ class LifecycleContractTest {
      */
     @Test
     fun `read service gates routes by activation state`() = runBlocking {
-        val service: ActivationService = ActivationServiceImpl(store, policy())
+        val service: ActivationService = ActivationServiceImpl(store, policy(), configurations)
         val pending = assertThrows(PluginManagerException::class.java) {
             runBlocking { service.signalRoute(store.activation.activationId) }
         }

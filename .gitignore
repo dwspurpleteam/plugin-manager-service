@@ -39,6 +39,3 @@ nb-configuration.xml
 /.quarkus/cli/plugins/
 # TLS Certificates
 .certs/
-
-# Generated sources
-/src/quarkus-generated-sources/
