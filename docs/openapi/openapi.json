@@ -53,7 +53,7 @@
             "type" : "string"
           },
           "consistency" : {
-            "type" : "string"
+            "$ref" : "#/components/schemas/SnapshotConsistency"
           }
         }
       },
@@ -65,9 +65,6 @@
             "type" : "string"
           },
           "participantName" : {
-            "type" : [ "string", "null" ]
-          },
-          "externalId" : {
             "type" : [ "string", "null" ]
           },
           "metadata" : {
@@ -337,6 +334,10 @@
             "type" : "string"
           }
         }
+      },
+      "SnapshotConsistency" : {
+        "type" : "string",
+        "enum" : [ "point-in-time", "eventual", "partial" ]
       },
       "UUID" : {
         "type" : "string",

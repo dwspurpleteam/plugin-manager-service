@@ -29,6 +29,7 @@ import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
+import ru.itmo.pluginmanager.domain.SnapshotConsistency
 import ru.itmo.pluginmanager.worker.WorkKind
 import java.time.Duration
 import java.time.Instant
@@ -109,7 +110,7 @@ class StorageContractTest {
         val context = ActivationContext(
             callId = "call",
             participants = emptyList(),
-            snapshot = ActivationContextSnapshot(Instant.EPOCH, "call-backend", "point-in-time"),
+            snapshot = ActivationContextSnapshot(Instant.EPOCH, "call-backend", SnapshotConsistency.POINT_IN_TIME),
         )
         val input = ActivationRequest("call", "plugin", "user", "key", initialContext = context)
         val store = storage()

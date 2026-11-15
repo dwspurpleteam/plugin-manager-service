@@ -1,37 +1,38 @@
 # plugin-manage-service
 
-Plugin Manager is the control plane for plugin activations in calls. It discovers
-and caches manifests, exposes signal routes and input media requirements, monitors
-availability and retains state history. It does not forward signals or media.
+Plugin Manager — управляющий контур активаций плагинов в звонках. Он обнаруживает
+и кэширует манифесты, предоставляет маршруты сигналов и требования к входным
+медиа, отслеживает доступность и хранит историю состояний. Он не пересылает
+сигналы или медиаданные.
 
-Schema, package layout and public contracts are documented in
-[docs/plugin-manager-contracts.md](docs/plugin-manager-contracts.md). Activation
-context input and Plugin Backend delivery are described in
-[docs/activation-context.md](docs/activation-context.md). The generated API
-schemas are available as [OpenAPI YAML](docs/openapi/openapi.yaml) and
+Передача контекста активации и доставка в Plugin Backend описаны в
+[docs/activation-context.md](docs/activation-context.md). Сгенерированные схемы
+API доступны в форматах [OpenAPI YAML](docs/openapi/openapi.yaml) и
 [OpenAPI JSON](docs/openapi/openapi.json).
 
-Unit tests are located in `src/test/kotlin` (`./gradlew test`). JVM integration tests
-are located in `src/integrationTest/kotlin` (`./gradlew integrationTest`) and use
-isolated infrastructure. Run both together with `./gradlew test integrationTest`.
+Модульные тесты находятся в `src/test/kotlin` (`./gradlew test`). Интеграционные
+тесты JVM находятся в `src/integrationTest/kotlin` (`./gradlew integrationTest`)
+и используют изолированную инфраструктуру. Запустить оба набора можно командой
+`./gradlew test integrationTest`.
 
-## Configuration and first activation
+## Конфигурация и первая активация
 
-Provide PostgreSQL and Redis and configure at least one registry:
+Предоставьте PostgreSQL и Redis и настройте хотя бы один реестр:
 
 ```properties
 plugin-manager.registries.example-registry.url=https://registry.example.com
 ```
 
-Database credentials use the `DB_*` variables described below. Redis uses
-`REDIS_URL` (default `redis://localhost:6379`). Registry URLs and all `plugin-manager.*`
-policies can be set in `application.properties`, via Java system properties before
-`-jar`, or through the corresponding Quarkus/SmallRye environment overrides.
-Timeout, concurrency, retry, TTL and retention defaults are listed in the contract
-document. Startup rejects invalid limits and incompatible lease/deadline settings.
+Для доступа к базе данных используются описанные ниже переменные `DB_*`. Redis использует
+`REDIS_URL` (по умолчанию `redis://localhost:6379`). URL реестров и все политики
+`plugin-manager.*` можно задать в `application.properties`, через системные свойства
+Java перед `-jar` или через соответствующие переменные окружения Quarkus/SmallRye.
+Значения по умолчанию для тайм-аутов, параллелизма, повторных попыток, TTL и хранения
+перечислены в документе контракта. При запуске отклоняются некорректные ограничения
+и несовместимые настройки lease/deadline.
 
-The `local` profile connects to the configured PostgreSQL data source at
-`localhost:5432/plugin_manager` with the dedicated application and migration roles:
+Профиль `local` подключается к настроенному источнику PostgreSQL по адресу
+`localhost:5432/plugin_manager` с выделенными ролями приложения и миграции:
 
 ```shell
 ./gradlew quarkusDev -Dquarkus.profile=local
@@ -48,27 +49,30 @@ curl -i -H 'Content-Type: application/json' http://localhost:8080/v1/activations
   -d '{"callId":"call-10","pluginId":"example-plugin","requestedBy":"user-12","idempotencyKey":"activate-1","initialContext":{"callId":"call-10","participants":[],"snapshot":{"capturedAt":"2026-11-08T12:00:00Z","source":"call-backend","consistency":"point-in-time"}}}'
 ```
 
-Registration returns 202 with an activation ID without waiting for a registry or
-healthcheck. Poll `/v1/activations/{activationId}`; only ACTIVE permits reading
-`/signal-route` and `/media-types`. Add `pluginVersion` for an exact version; omitted
-version selects the first suitable registry's current latest and pins it for that
-activation. Reuse a key only for an identical original request.
+Регистрация возвращает 202 и идентификатор активации, не дожидаясь ответа реестра
+или healthcheck. Опросите `/v1/activations/{activationId}`; только состояние ACTIVE
+позволяет читать
+`/signal-route` и `/media-types`. Для точной версии добавьте `pluginVersion`; если
+версия не указана, выбирается текущая latest первого подходящего реестра и
+фиксируется для этой активации. Повторно используйте ключ только для идентичного
+исходного запроса.
 
-`initialContext` is optional for backward compatibility. It is a trusted, durable
-per-call snapshot supplied by Call Backend; its `callId` must match the request. If
+`initialContext` необязателен: активация может быть создана без начального снимка.
+Если он передан, это доверенный и сохраняемый снимок конкретного звонка, переданный
+Call Backend; его `callId` должен совпадать с запросом. Если поле отсутствует,
 it is absent, Plugin Manager sends `initialContext: null` to Plugin Backend. After a
 successful healthcheck, Plugin Manager POSTs schema version `1.0` to the selected
 manifest's `backend.events.event-url`: `activationId`, `pluginId`, `pluginVersion`,
 `registryId`, `callId` and `initialContext`. The context is deliberately platform
 neutral: it contains no room/track SIDs, API credentials or browser-originated data.
 
-The OpenAPI document is available at `/q/openapi`, and Swagger UI is available at
+Документ OpenAPI доступен по адресу `/q/openapi`, а Swagger UI — по адресу
 `/swagger-ui` in development and packaged applications. Each build also writes
 `openapi.yaml` and `openapi.json` to `build/generated/openapi`.
 
-## Verification
+## Проверка
 
-Java 21 and a working Docker/Testcontainers environment are required, including for
+Требуются Java 21 и работающая среда Docker/Testcontainers, в том числе для
 the existing jOOQ generation. Tests never use the configured development database.
 
 ```shell
@@ -76,27 +80,27 @@ the existing jOOQ generation. Tests never use the configured development databas
 ./gradlew generateJooq --rerun-tasks
 ```
 
-Test reports are under `build/reports/tests/test` and `build/reports/tests/integrationTest`.
+Отчёты о тестах находятся в `build/reports/tests/test` и `build/reports/tests/integrationTest`.
 The integration suite builds the packaged application and tests recovery by stopping
 and restarting separate JVMs with retained, isolated PostgreSQL/Redis containers.
 Its process logs are in `build/process-recovery.log`. The scheduler is disabled in
 the regular test profile; tests invoke processors explicitly instead of racing it.
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+Проект использует Quarkus — Supersonic Subatomic Java Framework.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+Подробнее о Quarkus см. на сайте: <https://quarkus.io/>.
 
-## Running the application in dev mode
+## Запуск приложения в режиме разработки
 
-You can run your application in dev mode that enables live coding using:
+Запустить приложение в режиме разработки с поддержкой live coding можно командой:
 
 ```shell script
 ./gradlew quarkusDev
 ```
 
-## Database migrations and jOOQ generation
+## Миграции базы данных и генерация jOOQ
 
-### Create the database and roles
+### Создание базы данных и ролей
 
 Provision the database and roles separately from Flyway, using the standalone
 administrator bootstrap prepared for the installation. It is not included in the
@@ -121,12 +125,12 @@ ownership and privileges before starting the application. For non-local environm
 and configure `DB_PASSWORD` and `DB_MIGRATION_PASSWORD` accordingly; do not use the
 development passwords.
 
-### Apply migrations and generate models
+### Применение миграций и генерация моделей
 
 Put Flyway SQL migrations in `src/main/resources/db/migration` using names such as
 `V1__create_plugins.sql`. Quarkus applies them automatically on application startup.
 
-Generate the jOOQ model with:
+Сгенерируйте модель jOOQ командой:
 
 ```shell script
 ./gradlew generateJooq
@@ -159,9 +163,9 @@ transaction.transaction { dsl ->
 
 > **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
 
-## Packaging and running the application
+## Сборка и запуск приложения
 
-The application can be packaged using:
+Упаковать приложение можно командой:
 
 ```shell script
 ./gradlew build
@@ -197,7 +201,7 @@ packages the application and builds the image using
 
 The resulting local image is `local/plugin-manage-service:jvm`.
 
-## Creating a native executable
+## Создание native-исполняемого файла
 
 Native compilation requires Docker and a running Docker daemon. The build first generates jOOQ and Protobuf sources, then produces the native runner:
 
@@ -230,7 +234,7 @@ The CI pipeline runs the `native-test` stage after JVM integration tests. It bui
 
 If you want to learn more about building native executables, please consult <https://quarkus.io/guides/gradle-tooling>.
 
-## Related Guides
+## Связанные руководства
 
 - REST Jackson ([guide](https://quarkus.io/guides/rest#json-serialisation)): Jackson serialization support for Quarkus REST. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it
 - Flyway ([guide](https://quarkus.io/guides/flyway)): Handle your database schema migrations

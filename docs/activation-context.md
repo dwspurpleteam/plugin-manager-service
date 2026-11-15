@@ -1,27 +1,26 @@
-# Activation context and Plugin Backend delivery
+# Контекст активации и доставка в Plugin Backend
 
-This document describes the trusted call snapshot accepted by Plugin Manager and
-the message sent to the selected Plugin Backend. The activation scope is always
-per-call; `callId` is the call/room correlation identifier.
+В этом документе описаны доверенный снимок звонка, принимаемый Plugin Manager,
+и сообщение, отправляемое выбранному Plugin Backend. Область активации всегда
+ограничена одним звонком; `callId` — идентификатор корреляции звонка/комнаты.
 
-## Source and trust boundary
+## Источник и граница доверия
 
-The Call Backend is the source of truth for the snapshot. A browser must not send
-participant roles, media state, credentials, room/track SIDs, or an unrestricted
-participant list directly to Plugin Manager. The Call Backend authenticates the
-caller, reads the platform state, applies its allowlist, and sends the resulting
-snapshot in `initialContext`.
+Call Backend является источником истины для снимка. Браузер не должен напрямую
+отправлять в Plugin Manager роли участников, состояние медиа, учётные данные,
+room/track SID или неограниченный список участников. Call Backend аутентифицирует
+вызывающего, считывает состояние платформы, применяет список разрешённых данных и
+передаёт полученный снимок в `initialContext`.
 
-Plugin Manager validates only the contract-level invariant
-`initialContext.callId == request.callId`. It does not promote browser data to a
-trusted source and does not add OpenVidu- or LiveKit-specific identifiers to the
-universal contract.
+Plugin Manager проверяет только инвариант уровня контракта
+`initialContext.callId == request.callId`. Он не объявляет данные браузера
+доверенным источником и не добавляет в универсальный контракт идентификаторы,
+специфичные для OpenVidu или LiveKit.
 
-## Registration request
+## Запрос регистрации
 
-`POST /v1/activations` accepts the optional `initialContext` field. Omitting the
-field is backward compatible and results in `initialContext: null` in the backend
-message.
+`POST /v1/activations` принимает необязательное поле `initialContext`. Если поле
+не передано, в сообщении для backend используется `initialContext: null`.
 
 ```json
 {
@@ -41,7 +40,6 @@ message.
       {
         "participantIdentity": "user-7",
         "participantName": "Ivan",
-        "externalId": "external-user-42",
         "metadata": "{\"language\":\"en\"}",
         "role": "speaker",
         "joinDate": 1761472860000,
@@ -59,21 +57,34 @@ message.
 }
 ```
 
-`startDate`, `endDate`, and participant `joinDate` are epoch milliseconds.
-`metadata` is an opaque, allowlisted string; it is not interpreted by Plugin
-Manager. `snapshot.source` identifies the trusted producer, not a browser client.
+`startDate`, `endDate` и `joinDate` участника — миллисекунды эпохи Unix.
+`metadata` — непрозрачная строка, разрешённая списком; Plugin Manager её не
+интерпретирует. `snapshot.source` идентифицирует доверенного производителя, а не
+клиент браузера.
 
-The context is serialized into `plugin_activation.initial_context` (JSONB) in the
-same transaction as the activation and its `ACTIVATE` work item. Therefore a retry,
-an idempotent request, or worker recovery reads the original snapshot. A request
-reusing the same `(callId, idempotencyKey)` must contain the identical context;
-changing it returns `IDEMPOTENCY_CONFLICT` and never overwrites the stored value.
+`snapshot.consistency` принимает только следующие значения:
 
-## Backend message
+- `point-in-time` — все данные относятся к одному зафиксированному моменту времени;
+- `eventual` — данные согласуются с задержкой и могли быть получены из разных
+  актуальных на момент чтения источников;
+- `partial` — снимок намеренно содержит только часть доступного состояния.
 
-After the worker resolves and pins the concrete plugin version, performs the
-healthcheck, and before it marks the activation `ACTIVE`, it sends one HTTP `POST`
-to the selected manifest's `backend.events.event-url`.
+Источник снимка (`Call Backend`) обязан выбрать значение, соответствующее способу
+его формирования. Plugin Manager не повышает уровень гарантии и не преобразует
+один тип согласованности в другой.
+
+Контекст сериализуется в `plugin_activation.initial_context` (JSONB) в той же
+транзакции, что и активация с её рабочим элементом `ACTIVATE`. Поэтому повторная
+попытка, идемпотентный запрос или восстановление worker читают исходный снимок.
+Запрос с повторным использованием той же пары `(callId, idempotencyKey)` должен
+содержать идентичный контекст; его изменение возвращает `IDEMPOTENCY_CONFLICT` и
+никогда не перезаписывает сохранённое значение.
+
+## Сообщение для backend
+
+После того как worker определяет и фиксирует конкретную версию плагина, выполняет
+healthcheck и до перевода активации в `ACTIVE` он отправляет один HTTP `POST` на
+`backend.events.event-url` выбранного манифеста.
 
 ```json
 {
@@ -87,15 +98,14 @@ to the selected manifest's `backend.events.event-url`.
 }
 ```
 
-The message carries the immutable registry selection made for this activation,
-which prevents a later `latest` version from changing the delivery contract. A
-non-2xx response or transport failure follows the existing activation retry policy;
-the context is not reconstructed from the browser or refreshed implicitly. The
-Plugin Backend can serve multiple calls and must isolate them using at least
-`activationId` and `callId`.
+Сообщение содержит неизменяемый выбор реестра, сделанный для этой активации, что
+не позволяет последующей версии `latest` изменить контракт доставки. Ответ не-2xx
+или ошибка транспорта обрабатываются существующей политикой повторных попыток
+активации; контекст не восстанавливается из браузера и не обновляется неявно.
+Plugin Backend может обслуживать несколько звонков и должен изолировать их как
+минимум по `activationId` и `callId`.
 
-## Related contracts
+## Связанные контракты
 
-- [Plugin Manager contracts](plugin-manager-contracts.md)
 - [OpenAPI YAML](openapi/openapi.yaml)
 - [OpenAPI JSON](openapi/openapi.json)

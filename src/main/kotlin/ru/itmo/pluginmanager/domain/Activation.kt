@@ -1,5 +1,7 @@
 package ru.itmo.pluginmanager.domain
 
+import com.fasterxml.jackson.annotation.JsonCreator
+import com.fasterxml.jackson.annotation.JsonValue
 import java.time.Instant
 import java.util.UUID
 
@@ -20,6 +22,22 @@ enum class MediaType {
     VIDEO,
     SCREEN_SHARE,
     SCREEN_SHARE_AUDIO,
+}
+
+/** Тип согласованности доверенного снимка звонка. */
+enum class SnapshotConsistency(
+    @get:JsonValue val value: String,
+) {
+    POINT_IN_TIME("point-in-time"),
+    EVENTUAL("eventual"),
+    PARTIAL("partial"), ;
+
+    companion object {
+        @JvmStatic
+        @JsonCreator
+        fun fromValue(value: String): SnapshotConsistency = entries.firstOrNull { it.value == value }
+            ?: throw IllegalArgumentException("Unknown snapshot consistency: $value")
+    }
 }
 
 data class ActivationRequest(
@@ -49,7 +67,6 @@ data class ActivationContext(
 data class ActivationParticipant(
     val participantIdentity: String,
     val participantName: String? = null,
-    val externalId: String? = null,
     val metadata: String? = null,
     val role: String? = null,
     val joinDate: Long? = null,
@@ -59,7 +76,7 @@ data class ActivationParticipant(
 )
 
 /** Метаданные консистентности доверенного снимка звонка. */
-data class ActivationContextSnapshot(val capturedAt: Instant, val source: String, val consistency: String)
+data class ActivationContextSnapshot(val capturedAt: Instant, val source: String, val consistency: SnapshotConsistency)
 
 data class PluginSelection(val pluginId: String, val pluginVersion: String, val registryId: String)
 
