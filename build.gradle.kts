@@ -110,7 +110,7 @@ dependencies {
 
 }
 
-val lintDependencyDeclarations by tasks.registering {
+val lintDependencyDeclarations = tasks.register("lintDependencyDeclarations") {
     group = "verification"
     description = "Rejects string dependency coordinates in Gradle Kotlin DSL scripts."
 

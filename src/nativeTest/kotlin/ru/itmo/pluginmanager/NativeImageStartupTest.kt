@@ -27,7 +27,7 @@ class NativeImageStartupTest {
             runner.toString(),
             "-Dquarkus.http.port=$httpPort",
             "-Dquarkus.grpc.server.port=$grpcPort",
-            "-Dquarkus.flyway.migrate-at-start=false",
+            "-Dquarkus.flyway.migration.migrate-at-start=false",
             "-Dquarkus.scheduler.enabled=false",
         )
             .redirectErrorStream(true)
