@@ -11,6 +11,7 @@ import ru.itmo.pluginmanager.application.ActivationServiceImpl
 import ru.itmo.pluginmanager.application.ConfigurationService
 import ru.itmo.pluginmanager.domain.ActivationContext
 import ru.itmo.pluginmanager.domain.ActivationContextSnapshot
+import ru.itmo.pluginmanager.domain.SnapshotConsistency
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginActivationMessage
