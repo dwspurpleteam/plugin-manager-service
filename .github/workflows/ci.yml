@@ -113,3 +113,15 @@ jobs:
         env:
           EASYP_BIN: ${{ runner.temp }}/easyp-bin/easyp
         run: ./gradlew integrationTest
+
+  image:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: integration-test
+    uses: dwspurpleteam/.github/.github/workflows/image.yml@main
+    with:
+      service: pluginmanager
+      artifact: quarkus-app
+      artifact-path: image-context/build/quarkus-app
+      dockerfile: src/main/docker/Dockerfile.jvm
+      context: image-context
+    secrets: inherit
