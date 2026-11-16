@@ -57,7 +57,6 @@ val nativeTestTask = tasks.register<Test>("nativeTest") {
     inputs.file(nativeRunner)
     systemProperty("native.runner.path", nativeRunner.get().asFile.absolutePath)
 }
-
 dependencies {
     implementation(enforcedPlatform(libs.io.quarkus.platform.quarkus.bom))
 
@@ -71,6 +70,7 @@ dependencies {
     implementation(libs.io.quarkus.quarkus.rest.kotlin)
     implementation(libs.io.quarkus.quarkus.rest.jackson)
     implementation(libs.io.quarkus.quarkus.smallrye.openapi)
+    implementation(libs.io.quarkus.quarkus.smallrye.health)
 
     // Исходящие REST-запросы
     implementation(libs.io.quarkus.quarkus.rest.client.jackson)
@@ -110,7 +110,7 @@ dependencies {
 
 }
 
-val lintDependencyDeclarations by tasks.registering {
+val lintDependencyDeclarations = tasks.register("lintDependencyDeclarations") {
     group = "verification"
     description = "Rejects string dependency coordinates in Gradle Kotlin DSL scripts."
 

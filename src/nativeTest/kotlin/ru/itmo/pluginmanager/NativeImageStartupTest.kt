@@ -27,22 +27,28 @@ class NativeImageStartupTest {
             runner.toString(),
             "-Dquarkus.http.port=$httpPort",
             "-Dquarkus.grpc.server.port=$grpcPort",
-            "-Dquarkus.flyway.migrate-at-start=false",
+            "-Dquarkus.flyway.migration.migrate-at-start=false",
             "-Dquarkus.scheduler.enabled=false",
         )
             .redirectErrorStream(true)
             .redirectOutput(log.toFile())
             .start()
 
+        var testSucceeded = false
         try {
             val response = awaitLiveness(process, httpPort, log)
-            assertEquals(HTTP_OK, response.statusCode())
+            assertEquals(HTTP_OK, response.statusCode(), "Liveness response: ${response.body()}")
+            testSucceeded = true
         } finally {
             process.destroy()
             if (!process.waitFor(PROCESS_STOP_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)) {
                 process.destroyForcibly()
             }
-            Files.deleteIfExists(log)
+            if (testSucceeded) {
+                Files.deleteIfExists(log)
+            } else {
+                System.err.println("Native executable log is available at: $log")
+            }
         }
     }
 
