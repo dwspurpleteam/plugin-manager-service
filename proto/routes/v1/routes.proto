@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package routes.v1;
+
+option java_multiple_files = true;
+option java_package = "ru.itmo.pluginmanager.routes.v1";
+
+// Event type for which a caller requests permission.
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+
+  // participant.joined: a participant joined the call.
+  EVENT_TYPE_PARTICIPANT_JOINED = 1;
+  // participant.left: a participant left the call.
+  EVENT_TYPE_PARTICIPANT_LEFT = 2;
+  // participant.connection_aborted: a participant connection request was rejected.
+  EVENT_TYPE_PARTICIPANT_CONNECTION_ABORTED = 3;
+  // participant.reconnecting: a participant is reconnecting.
+  EVENT_TYPE_PARTICIPANT_RECONNECTING = 4;
+  // participant.reconnected: a participant reconnected.
+  EVENT_TYPE_PARTICIPANT_RECONNECTED = 5;
+  // participant.kicked: a participant was removed from the call.
+  EVENT_TYPE_PARTICIPANT_KICKED = 6;
+
+  // media.audio_muted: a participant muted their microphone.
+  EVENT_TYPE_MEDIA_AUDIO_MUTED = 7;
+  // media.audio_unmuted: a participant unmuted their microphone.
+  EVENT_TYPE_MEDIA_AUDIO_UNMUTED = 8;
+  // media.video_enabled: a participant enabled video.
+  EVENT_TYPE_MEDIA_VIDEO_ENABLED = 9;
+  // media.video_disabled: a participant disabled video.
+  EVENT_TYPE_MEDIA_VIDEO_DISABLED = 10;
+  // media.screen_share_started: a participant started screen sharing.
+  EVENT_TYPE_MEDIA_SCREEN_SHARE_STARTED = 11;
+  // media.screen_share_stopped: a participant stopped screen sharing.
+  EVENT_TYPE_MEDIA_SCREEN_SHARE_STOPPED = 12;
+  // media.track_published: a participant started publishing a media track.
+  EVENT_TYPE_MEDIA_TRACK_PUBLISHED = 13;
+  // media.track_unpublished: a participant stopped publishing a media track.
+  EVENT_TYPE_MEDIA_TRACK_UNPUBLISHED = 14;
+
+  // interaction.chat_message_received: a chat message was received.
+  EVENT_TYPE_INTERACTION_CHAT_MESSAGE_RECEIVED = 15;
+}
+
+// Media type for which a caller requests permission.
+enum MediaType {
+  MEDIA_TYPE_UNSPECIFIED = 0;
+  MEDIA_TYPE_AUDIO = 1;
+  MEDIA_TYPE_VIDEO = 2;
+  MEDIA_TYPE_SCREEN_SHARE = 3;
+  MEDIA_TYPE_SCREEN_SHARE_AUDIO = 4;
+}
+
+// Request to check whether a user may send an event to plugins in a call.
+message CheckEventPermissionRequest {
+  string call_id = 1;
+  EventType event_type = 2;
+  string from_user = 3;
+}
+
+// Result of checking permission to send an event to plugins.
+message CheckEventPermissionResponse {
+  EventType event_type = 1;
+  bool can_send = 2;
+  repeated string plugin_ids = 3;
+}
+
+// Request to check whether a user may publish a media stream to plugins in a call.
+message CheckMediaPermissionRequest {
+  string call_id = 1;
+  MediaType media_type = 2;
+  string from_user = 3;
+}
+
+// Result of checking permission to publish a media stream to plugins.
+message CheckMediaPermissionResponse {
+  bool can_send = 1;
+  MediaType media_type = 2;
+  repeated PluginInfo plugins = 3;
+}
+
+message PluginInfo {
+  string plugin_id = 1;
+  string plugin_version = 2;
+}
+
+// Resolves plugins that may receive events and media streams from a caller.
+service RoutesService {
+  // Checks permission to send an event to plugins.
+  rpc CheckEventPermission(CheckEventPermissionRequest) returns (CheckEventPermissionResponse);
+
+  // Checks permission to publish a media stream to plugins.
+  rpc CheckMediaPermission(CheckMediaPermissionRequest) returns (CheckMediaPermissionResponse);
+}
