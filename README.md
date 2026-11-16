@@ -62,7 +62,7 @@ curl -i -H 'Content-Type: application/json' http://localhost:8080/v1/activations
 Call Backend; его `callId` должен совпадать с запросом. Если поле отсутствует,
 Plugin Manager отправляет в Plugin Backend `initialContext: null`. После успешной
 проверки доступности Plugin Manager отправляет POST-запрос со схемой версии `1.0`
-на `backend.events.event-url` выбранного манифеста; запрос содержит `activationId`,
+на `backend.control-url` выбранного манифеста; запрос содержит `activationId`,
 `pluginId`, `pluginVersion`, `registryId`, `callId` и `initialContext`. Контекст
 намеренно не зависит от платформы: он не содержит SID комнаты или медиатреков,
 учётных данных API и данных, полученных из браузера.

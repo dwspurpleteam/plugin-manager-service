@@ -35,8 +35,8 @@ class RoutesServiceImpl(
         val pluginIds = activeActivations(request.callId, request.activationId, request.activationSecret)
             .filter { activation ->
                 val events = configurations.get(requireNotNull(activation.selection)).manifest.backend.events
-                events.availableEventTypes?.let { request.eventType.eventName() in it }
-                    ?: (request.eventType.groupName() in events.availableEventGroups.orEmpty())
+                events?.availableEventTypes?.let { request.eventType.eventName() in it }
+                    ?: (request.eventType.groupName() in events?.availableEventGroups.orEmpty())
             }
             .map { it.request.pluginId }
             .distinct()

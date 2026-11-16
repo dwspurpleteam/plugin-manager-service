@@ -219,23 +219,24 @@ components:
           type: string
         health-url:
           type: string
-        events:
-          $ref: "#/components/schemas/PluginEvents"
+        control-url:
+          type: string
         media:
           $ref: "#/components/schemas/PluginMedia"
+        events:
+          anyOf:
+          - $ref: "#/components/schemas/PluginEvents"
+          - type: "null"
         actions:
           type: array
           uniqueItems: true
           items:
             type: string
       required:
-      - events
       - media
     PluginEvents:
       type: object
       properties:
-        event-url:
-          type: string
         available-event-types:
           type:
           - array

@@ -44,10 +44,12 @@ class LifecycleContractTest {
         override suspend fun check(url: String) = healthy
     }
     private var sentMessage: PluginActivationMessage? = null
+    private var sentEndpoint: String? = null
     private var allowedDuringNotification = false
     private val secrets = ActivationSecrets("0123456789abcdef0123456789abcdef")
     private val notifier = object : PluginActivationNotifier {
         override suspend fun notify(endpoint: String, message: PluginActivationMessage) {
+            sentEndpoint = endpoint
             sentMessage = message
             val request = CheckEventPermissionRequest.newBuilder()
                 .setCallId(message.callId)
@@ -92,7 +94,7 @@ class LifecycleContractTest {
         healthy = true
         processor().process(store.lease.copy(attemptCount = 2))
         assertEquals(ActivationState.ACTIVE, store.activation.state)
-        assertEquals(manifest().backend.events.availableEventTypes, store.savedRoute!!.allowedEventTypes)
+        assertEquals(manifest().backend.events!!.availableEventTypes, store.savedRoute!!.allowedEventTypes)
         assertEquals(null, store.savedRoute!!.allowedEventGroups)
         assertEquals(WorkKind.ACTIVATE, processor().kind)
         assertEquals(1, resolutions)
@@ -107,7 +109,6 @@ class LifecycleContractTest {
         configuredManifest = manifest().copy(
             backend = manifest().backend.copy(
                 events = PluginEvents(
-                    eventUrl = manifest().backend.events.eventUrl,
                     availableEventGroups = setOf("participants", "recording"),
                 ),
             ),
@@ -144,6 +145,7 @@ class LifecycleContractTest {
         assertEquals("call", sentMessage!!.callId)
         assertTrue(secrets.matches("call", store.activation.activationId.toString(), sentMessage!!.activationSecret))
         assertEquals("1.0", sentMessage!!.schemaVersion)
+        assertEquals(manifest().backend.controlUrl, sentEndpoint)
         assertTrue(allowedDuringNotification)
     }
 

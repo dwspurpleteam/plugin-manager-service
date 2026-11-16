@@ -68,13 +68,13 @@ class DefaultActivationProcessor(
                 activation.request.pluginRegistryId,
             ).also { store.pinSelection(lease, it) }
             val manifest = configurations.get(selection).manifest
-            val allowedEventTypes = manifest.backend.events.availableEventTypes
+            val allowedEventTypes = manifest.backend.events?.availableEventTypes
             ActivationRoute(
                 UUID.randomUUID(),
                 lease.activationId,
-                manifest.backend.events.eventUrl,
+                manifest.backend.controlUrl,
                 allowedEventTypes,
-                manifest.backend.events.availableEventGroups.takeIf { allowedEventTypes == null },
+                manifest.backend.events?.availableEventGroups.takeIf { allowedEventTypes == null },
                 manifest.backend.healthUrl,
             ).also { store.saveRoute(lease, it) }
         }

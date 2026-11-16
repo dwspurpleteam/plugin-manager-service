@@ -53,7 +53,7 @@ class RoutesServiceImplTest {
     fun `explicit event types take precedence over event groups`() = runBlocking {
         store.activation = store.activation.copy(state = ActivationState.ACTIVE, selection = selection)
         val base = manifest()
-        val events = base.backend.events.copy(
+        val events = base.backend.events!!.copy(
             availableEventTypes = setOf("participant.left"),
             availableEventGroups = setOf("participant"),
         )
@@ -78,7 +78,7 @@ class RoutesServiceImplTest {
                 selection,
                 base.copy(
                     backend = base.backend.copy(
-                        events = base.backend.events.copy(
+                        events = base.backend.events!!.copy(
                             availableEventTypes = null,
                             availableEventGroups = setOf("participant"),
                         ),
