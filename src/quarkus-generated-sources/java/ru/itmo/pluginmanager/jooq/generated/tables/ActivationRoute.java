@@ -84,7 +84,7 @@ public class ActivationRoute extends TableImpl<ActivationRouteRecord> {
     /**
      * The column <code>public.activation_route.media_types</code>.
      */
-    public final TableField<ActivationRouteRecord, MediaType[]> MEDIA_TYPES = createField(DSL.name("media_types"), SQLDataType.VARCHAR.nullable(false).asEnumDataType(MediaType.class).array(), this, "");
+    public final TableField<ActivationRouteRecord, MediaType[]> MEDIA_TYPES = createField(DSL.name("media_types"), SQLDataType.VARCHAR.nullable(false).defaultValue(DSL.field(DSL.raw("'{}'::media_type[]"), SQLDataType.VARCHAR)).asEnumDataType(MediaType.class).array(), this, "");
 
     /**
      * The column <code>public.activation_route.created_at</code>.

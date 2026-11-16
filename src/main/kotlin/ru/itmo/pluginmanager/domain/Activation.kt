@@ -110,5 +110,8 @@ data class PluginActivationMessage(
     val pluginVersion: String,
     val registryId: String,
     val callId: String,
+    val activationSecret: String,
     val initialContext: ActivationContext? = null,
-)
+) {
+    override fun toString(): String = "PluginActivationMessage(activationId=$activationId, callId=$callId)"
+}

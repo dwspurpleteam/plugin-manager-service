@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Timeout
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.postgresql.PostgreSQLContainer
 import ru.itmo.pluginmanager.domain.PluginEvents
+import ru.itmo.pluginmanager.routes.ActivationSecrets
 import ru.itmo.pluginmanager.support.manifest
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -131,6 +132,8 @@ class ProcessRecoveryTest {
             assertEquals(200, get("$base/v1/activations/$id/signal-route").statusCode())
             assertEquals("recovery", mapper.readTree(activationMessage.get())["initialContext"]["callId"].asText())
             assertEquals("1.0", mapper.readTree(activationMessage.get())["schemaVersion"].asText())
+            val secret = mapper.readTree(activationMessage.get())["activationSecret"].asText()
+            assertTrue(ActivationSecrets("0123456789abcdef0123456789abcdef").matches("recovery", id, secret))
             val before = metadataRequests.get()
             stop(process)
             server.createContext("/v1/plugins") { exchange ->
@@ -171,6 +174,8 @@ class ProcessRecoveryTest {
                 "REDIS_URL" to "redis://${redis.host}:${redis.firstMappedPort}",
                 "QUARKUS_HTTP_HOST" to "127.0.0.1", "QUARKUS_HTTP_PORT" to port.toString(),
                 "QUARKUS_SCHEDULER_ENABLED" to scheduler.toString(),
+                "PLUGIN_MANAGER_ACTIVATION_SECRET_KEY" to "0123456789abcdef0123456789abcdef",
+                "PLUGIN_MANAGER_ALLOW_INSECURE_ACTIVATION_DELIVERY" to "true",
             ),
         )
         return builder.redirectErrorStream(true)

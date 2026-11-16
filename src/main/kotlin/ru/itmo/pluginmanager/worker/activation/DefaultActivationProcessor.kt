@@ -15,6 +15,7 @@ import ru.itmo.pluginmanager.domain.PluginSelection
 import ru.itmo.pluginmanager.health.PluginHealthcheck
 import ru.itmo.pluginmanager.persistence.ActivationStore
 import ru.itmo.pluginmanager.persistence.WorkStore
+import ru.itmo.pluginmanager.routes.ActivationSecrets
 import ru.itmo.pluginmanager.worker.WorkKind
 import ru.itmo.pluginmanager.worker.WorkLease
 import ru.itmo.pluginmanager.worker.WorkerProcessor
@@ -30,6 +31,7 @@ class DefaultActivationProcessor(
     private val configurations: ConfigurationService,
     private val health: PluginHealthcheck,
     private val notifier: PluginActivationNotifier,
+    private val secrets: ActivationSecrets,
     private val config: PluginManagerConfig,
     private val clock: Clock,
 ) : WorkerProcessor {
@@ -96,6 +98,7 @@ class DefaultActivationProcessor(
                 pluginVersion = selection.pluginVersion,
                 registryId = selection.registryId,
                 callId = activation.request.callId,
+                activationSecret = secrets.issue(activation.request.callId, activation.activationId.toString()),
                 initialContext = activation.request.initialContext,
             ),
         )

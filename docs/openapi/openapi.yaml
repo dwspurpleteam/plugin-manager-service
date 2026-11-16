@@ -223,6 +223,11 @@ components:
           $ref: "#/components/schemas/PluginEvents"
         media:
           $ref: "#/components/schemas/PluginMedia"
+        actions:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
       required:
       - events
       - media

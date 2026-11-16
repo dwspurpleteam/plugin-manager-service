@@ -3,6 +3,7 @@ package ru.itmo.pluginmanager.routes
 import jakarta.enterprise.context.ApplicationScoped
 import ru.itmo.pluginmanager.application.ConfigurationService
 import ru.itmo.pluginmanager.domain.Activation
+import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.persistence.ActivationStore
 import ru.itmo.pluginmanager.routes.v1.CheckActionPermissionRequest
 import ru.itmo.pluginmanager.routes.v1.CheckActionPermissionResponse
@@ -12,6 +13,7 @@ import ru.itmo.pluginmanager.routes.v1.CheckMediaPermissionRequest
 import ru.itmo.pluginmanager.routes.v1.CheckMediaPermissionResponse
 import ru.itmo.pluginmanager.routes.v1.EventType
 import ru.itmo.pluginmanager.routes.v1.PluginInfo
+import java.util.UUID
 import ru.itmo.pluginmanager.domain.MediaType as ManifestMediaType
 import ru.itmo.pluginmanager.routes.v1.MediaType as RouteMediaType
 
@@ -67,10 +69,16 @@ class RoutesServiceImpl(
             .build()
     }
 
+    @Suppress("ReturnCount")
     private suspend fun activeActivations(callId: String, activationId: String, secret: String): List<Activation> {
-        if (activationId.isNotEmpty() && !secrets.matches(callId, activationId, secret)) return emptyList()
-        return activations.findActiveByCall(callId)
-            .filter { activationId.isEmpty() || it.activationId.toString() == activationId }
+        if (activationId.isEmpty()) return activations.findActiveByCall(callId)
+        if (!secrets.matches(callId, activationId, secret)) return emptyList()
+        val id = runCatching { UUID.fromString(activationId) }.getOrNull() ?: return emptyList()
+        val activation = activations.find(id) ?: return emptyList()
+        if (activation.request.callId != callId || activation.selection == null) return emptyList()
+        if (activation.state == ActivationState.ACTIVE) return listOf(activation)
+        if (activation.state != ActivationState.ACTIVATING || activations.route(id) == null) return emptyList()
+        return listOf(activation)
     }
 
     private fun EventType.eventName(): String? = eventNames[this]

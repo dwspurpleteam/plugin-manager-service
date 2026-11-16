@@ -20,6 +20,10 @@ import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
 import ru.itmo.pluginmanager.domain.SnapshotConsistency
 import ru.itmo.pluginmanager.health.PluginHealthcheck
+import ru.itmo.pluginmanager.routes.ActivationSecrets
+import ru.itmo.pluginmanager.routes.RoutesServiceImpl
+import ru.itmo.pluginmanager.routes.v1.CheckEventPermissionRequest
+import ru.itmo.pluginmanager.routes.v1.EventType
 import ru.itmo.pluginmanager.support.MemoryStores
 import ru.itmo.pluginmanager.support.manifest
 import ru.itmo.pluginmanager.support.policy
@@ -40,9 +44,19 @@ class LifecycleContractTest {
         override suspend fun check(url: String) = healthy
     }
     private var sentMessage: PluginActivationMessage? = null
+    private var allowedDuringNotification = false
+    private val secrets = ActivationSecrets("0123456789abcdef0123456789abcdef")
     private val notifier = object : PluginActivationNotifier {
         override suspend fun notify(endpoint: String, message: PluginActivationMessage) {
             sentMessage = message
+            val request = CheckEventPermissionRequest.newBuilder()
+                .setCallId(message.callId)
+                .setActivationId(message.activationId.toString())
+                .setActivationSecret(message.activationSecret)
+                .setEventType(EventType.EVENT_TYPE_PARTICIPANT_JOINED)
+                .build()
+            allowedDuringNotification = RoutesServiceImpl(store, configurations, secrets)
+                .getPermissionsForEvent(request).canSend
         }
     }
     private val configurations = object : ConfigurationService {
@@ -59,6 +73,7 @@ class LifecycleContractTest {
         configurations,
         health,
         notifier,
+        secrets,
         policy(),
         Clock.systemUTC(),
     )
@@ -127,7 +142,9 @@ class LifecycleContractTest {
         assertEquals("1.0.0", sentMessage!!.pluginVersion)
         assertEquals("registry", sentMessage!!.registryId)
         assertEquals("call", sentMessage!!.callId)
+        assertTrue(secrets.matches("call", store.activation.activationId.toString(), sentMessage!!.activationSecret))
         assertEquals("1.0", sentMessage!!.schemaVersion)
+        assertTrue(allowedDuringNotification)
     }
 
     @Test
