@@ -129,6 +129,16 @@ class LifecycleContractTest {
         assertEquals("1.0", sentMessage!!.schemaVersion)
     }
 
+    @Test
+    fun `rejects insecure delivery of activation secret`() = runBlocking {
+        processor().process(store.lease)
+        val sender = HttpPluginActivationNotifier(policy(), false)
+        val failure = assertThrows(PluginManagerException::class.java) {
+            runBlocking { sender.notify("http://example.org/activation", requireNotNull(sentMessage)) }
+        }
+        assertEquals(ErrorCode.INVALID_MANIFEST, failure.code)
+    }
+
     /**
      * Тест проверяет исчерпание попыток, включая восстановление после падения последнего worker.
      * Ожидаемый результат: FAILED и отсутствие дополнительных обращений к реестру сверх лимита.
