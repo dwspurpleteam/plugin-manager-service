@@ -22,6 +22,7 @@ data class PluginBackend(
     @get:JsonProperty("health-url") @param:JsonProperty("health-url") val healthUrl: String,
     val events: PluginEvents,
     val media: PluginMedia,
+    val actions: Set<String> = emptySet(),
 )
 
 data class PluginEvents(
