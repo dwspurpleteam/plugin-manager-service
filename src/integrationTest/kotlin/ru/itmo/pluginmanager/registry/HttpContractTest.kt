@@ -18,6 +18,7 @@ import ru.itmo.pluginmanager.health.PluginHealthcheck
 import ru.itmo.pluginmanager.support.manifest
 import ru.itmo.pluginmanager.support.policy
 import java.net.InetSocketAddress
+import java.net.ServerSocket
 
 @QuarkusTest
 @QuarkusTestResource(PostgresTestResource::class)
@@ -92,5 +93,17 @@ class HttpContractTest {
         } finally {
             server.stop(0)
         }
+    }
+
+    /**
+     * Тест проверяет обработку отказа TCP-соединения при healthcheck.
+     * Ожидаемый результат: отказ соединения считается неуспешной проверкой и возвращает false.
+     */
+    @Test
+    fun `probe treats connection refusal as unhealthy`() = runBlocking {
+        val port = ServerSocket(0).use { it.localPort }
+        val probe: PluginHealthcheck = HttpPluginHealthcheck(policy())
+
+        assertFalse(probe.check("http://127.0.0.1:$port"))
     }
 }

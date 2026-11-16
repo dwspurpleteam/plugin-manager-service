@@ -6,6 +6,7 @@ org-jetbrains-kotlin-version = "2.4.10"
 org-jooq-jooq-version = "3.21.9"
 org-jooq-jooq-kotlin-version = "3.21.9"
 org-jooq-jooq-kotlin-coroutines-version = "3.21.9"
+org-locationtech-jts-version = "1.20.0"
 org-postgresql-r2dbc-postgresql-version = "1.1.3.RELEASE"
 io-r2dbc-r2dbc-pool-version = "1.0.2.RELEASE"
 org-slf4j-version = "2.0.18"
@@ -16,6 +17,7 @@ org-slf4j-version = "2.0.18"
 dev-detekt-rules-ktlint-wrapper = { group = "dev.detekt", name = "detekt-rules-ktlint-wrapper", version.ref = "dev-detekt-version" }
 io-quarkus-platform-quarkus-bom = { group = "io.quarkus.platform", name = "quarkus-bom", version.ref = "io-quarkus-platform-version" }
 io-quarkus-quarkus-kotlin = { group = "io.quarkus", name = "quarkus-kotlin" }
+io-quarkus-quarkus-container-image-docker = { group = "io.quarkus", name = "quarkus-container-image-docker" }
 org-jetbrains-kotlin-kotlin-stdlib-jdk8 = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8" }
 io-quarkus-quarkus-arc = { group = "io.quarkus", name = "quarkus-arc" }
 io-quarkus-quarkus-rest-kotlin = { group = "io.quarkus", name = "quarkus-rest-kotlin" }
@@ -25,6 +27,7 @@ io-quarkus-quarkus-smallrye-openapi = { group = "io.quarkus", name = "quarkus-sm
 io-quarkus-quarkus-redis-client = { group = "io.quarkus", name = "quarkus-redis-client" }
 com-fasterxml-jackson-module-kotlin = { group = "com.fasterxml.jackson.module", name = "jackson-module-kotlin" }
 io-quarkus-quarkus-grpc = { group = "io.quarkus", name = "quarkus-grpc" }
+com-google-protobuf-protobuf-kotlin = { group = "com.google.protobuf", name = "protobuf-kotlin" }
 io-smallrye-reactive-mutiny-kotlin = { group = "io.smallrye.reactive", name = "mutiny-kotlin" }
 io-quarkus-quarkus-flyway = { group = "io.quarkus", name = "quarkus-flyway" }
 io-quarkus-quarkus-jdbc-postgresql = { group = "io.quarkus", name = "quarkus-jdbc-postgresql" }
@@ -35,6 +38,8 @@ org-jooq-jooq-kotlin-coroutines = { group = "org.jooq", name = "jooq-kotlin-coro
 org-jooq-jooq-codegen = { group = "org.jooq", name = "jooq-codegen", version.ref = "org-jooq-jooq-version" }
 org-flywaydb-flyway-core = { group = "org.flywaydb", name = "flyway-core" }
 org-flywaydb-flyway-database-postgresql = { group = "org.flywaydb", name = "flyway-database-postgresql" }
+io-micrometer-micrometer-core = { group = "io.micrometer", name = "micrometer-core" }
+org-locationtech-jts-core = { group = "org.locationtech.jts", name = "jts-core", version.ref = "org-locationtech-jts-version" }
 org-postgresql-postgresql = { group = "org.postgresql", name = "postgresql" }
 org-testcontainers-testcontainers-postgresql = { group = "org.testcontainers", name = "testcontainers-postgresql" }
 org-testcontainers-testcontainers = { group = "org.testcontainers", name = "testcontainers" }
