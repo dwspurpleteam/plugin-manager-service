@@ -2,10 +2,11 @@
 IMAGE ?= ghcr.io/dwspurpleteam/pluginmanager
 override TAG := $(shell git rev-parse HEAD)
 PLATFORM ?= linux/amd64
+DOCKERFILE ?= src/main/docker/Dockerfile.jvm
 
 .PHONY: image-build
 image-build:
-	git archive --format=tar $(TAG) | docker buildx build --platform $(PLATFORM) --load -t $(IMAGE):$(TAG) -f Dockerfile -
+	docker buildx build --platform $(PLATFORM) --load -t $(IMAGE):$(TAG) -f $(DOCKERFILE) .
 
 .PHONY: image-push
 image-push:
