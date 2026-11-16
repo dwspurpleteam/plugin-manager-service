@@ -15,6 +15,8 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import org.eclipse.microprofile.context.ThreadContext
 import org.jboss.logging.Logger
+import ru.itmo.pluginmanager.routes.v1.CheckActionPermissionRequest
+import ru.itmo.pluginmanager.routes.v1.CheckActionPermissionResponse
 import ru.itmo.pluginmanager.routes.v1.CheckEventPermissionRequest
 import ru.itmo.pluginmanager.routes.v1.CheckEventPermissionResponse
 import ru.itmo.pluginmanager.routes.v1.CheckMediaPermissionRequest
@@ -33,6 +35,9 @@ class RoutesGrpcServer(private val routesService: RoutesService, private val con
         ).addMethod(
             checkMediaPermissionMethod,
             unaryCall("CheckMediaPermission", routesService::getPermissionsForMedia),
+        ).addMethod(
+            checkActionPermissionMethod,
+            unaryCall("CheckActionPermission", routesService::checkAction),
         ).build()
 
     private fun <RequestT, ResponseT> unaryCall(methodName: String, handler: suspend (RequestT) -> ResponseT) =
@@ -67,6 +72,13 @@ class RoutesGrpcServer(private val routesService: RoutesService, private val con
 
     private companion object {
         const val SERVICE_NAME = "routes.v1.RoutesService"
+
+        val checkActionPermissionMethod: MethodDescriptor<CheckActionPermissionRequest, CheckActionPermissionResponse> =
+            unaryMethod(
+                "CheckActionPermission",
+                CheckActionPermissionRequest.getDefaultInstance(),
+                CheckActionPermissionResponse.getDefaultInstance(),
+            )
 
         val checkEventPermissionMethod: MethodDescriptor<CheckEventPermissionRequest, CheckEventPermissionResponse> =
             unaryMethod(
