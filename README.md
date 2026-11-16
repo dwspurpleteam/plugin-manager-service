@@ -60,20 +60,22 @@ curl -i -H 'Content-Type: application/json' http://localhost:8080/v1/activations
 `initialContext` необязателен: активация может быть создана без начального снимка.
 Если он передан, это доверенный и сохраняемый снимок конкретного звонка, переданный
 Call Backend; его `callId` должен совпадать с запросом. Если поле отсутствует,
-it is absent, Plugin Manager sends `initialContext: null` to Plugin Backend. After a
-successful healthcheck, Plugin Manager POSTs schema version `1.0` to the selected
-manifest's `backend.events.event-url`: `activationId`, `pluginId`, `pluginVersion`,
-`registryId`, `callId` and `initialContext`. The context is deliberately platform
-neutral: it contains no room/track SIDs, API credentials or browser-originated data.
+Plugin Manager отправляет в Plugin Backend `initialContext: null`. После успешной
+проверки доступности Plugin Manager отправляет POST-запрос со схемой версии `1.0`
+на `backend.events.event-url` выбранного манифеста; запрос содержит `activationId`,
+`pluginId`, `pluginVersion`, `registryId`, `callId` и `initialContext`. Контекст
+намеренно не зависит от платформы: он не содержит SID комнаты или медиатреков,
+учётных данных API и данных, полученных из браузера.
 
 Документ OpenAPI доступен по адресу `/q/openapi`, а Swagger UI — по адресу
-`/swagger-ui` in development and packaged applications. Each build also writes
-`openapi.yaml` and `openapi.json` to `build/generated/openapi`.
+`/swagger-ui` в режиме разработки и в упакованном приложении. Каждая сборка также
+записывает `openapi.yaml` и `openapi.json` в `build/generated/openapi`.
 
 ## Проверка
 
 Требуются Java 21 и работающая среда Docker/Testcontainers, в том числе для
-the existing jOOQ generation. Tests never use the configured development database.
+существующей генерации jOOQ. Тесты никогда не используют настроенную базу данных
+для разработки.
 
 ```shell
 ./gradlew detekt test integrationTest assemble lintDependencyDeclarations
@@ -81,12 +83,12 @@ the existing jOOQ generation. Tests never use the configured development databas
 ```
 
 Отчёты о тестах находятся в `build/reports/tests/test` и `build/reports/tests/integrationTest`.
-The integration suite builds the packaged application and tests recovery by stopping
-and restarting separate JVMs with retained, isolated PostgreSQL/Redis containers.
-Its process logs are in `build/process-recovery.log`. The scheduler is disabled in
-the regular test profile; tests invoke processors explicitly instead of racing it.
+Набор интеграционных тестов собирает упакованное приложение и проверяет восстановление,
+останавливая и перезапуская отдельные JVM при сохранённых изолированных контейнерах
+PostgreSQL/Redis. Логи процессов находятся в `build/process-recovery.log`. Планировщик
+отключён в обычном тестовом профиле; тесты явно вызывают обработчики, не конкурируя с ним.
 
-Проект использует Quarkus — Supersonic Subatomic Java Framework.
+Проект использует Quarkus — Java-фреймворк Supersonic Subatomic.
 
 Подробнее о Quarkus см. на сайте: <https://quarkus.io/>.
 
@@ -102,17 +104,18 @@ the regular test profile; tests invoke processors explicitly instead of racing i
 
 ### Создание базы данных и ролей
 
-Provision the database and roles separately from Flyway, using the standalone
-administrator bootstrap prepared for the installation. It is not included in the
-application migrations. The `plugin_manager_migration` role owns the database and
-creates schema objects; `plugin_manager_app` has CONNECT, schema USAGE and data
-access, but no schema CREATE permission. Default privileges of the migration role
-must grant SELECT/INSERT/UPDATE/DELETE on future tables and USAGE/SELECT on sequences
-to the application role. Application tables are created by Flyway at startup.
+Подготовьте базу данных и роли отдельно от Flyway с помощью отдельного
+администраторского bootstrap-скрипта, предназначенного для установки. Он не входит
+в миграции приложения. Роль `plugin_manager_migration` владеет базой данных и
+создаёт объекты схемы; `plugin_manager_app` имеет права CONNECT, USAGE для схемы и
+доступ к данным, но не имеет права CREATE для схемы. Привилегии по умолчанию роли
+миграций должны предоставлять роли приложения права SELECT/INSERT/UPDATE/DELETE на
+будущие таблицы и USAGE/SELECT на последовательности. Таблицы приложения создаются
+Flyway при запуске.
 
-The local-development defaults in `application.properties` are:
+Значения по умолчанию для локальной разработки в `application.properties`:
 
-| Setting | Value |
+| Параметр | Значение |
 | --- | --- |
 | Database | `plugin_manager` |
 | Application username | `plugin_manager_app` |
@@ -120,15 +123,15 @@ The local-development defaults in `application.properties` are:
 | Migration username | `plugin_manager_migration` |
 | Migration password | `plugin_manager_migration_local_2026` |
 
-Use a dedicated Plugin Manager database. For an existing installation, verify role
-ownership and privileges before starting the application. For non-local environments, provision secure passwords
-and configure `DB_PASSWORD` and `DB_MIGRATION_PASSWORD` accordingly; do not use the
-development passwords.
+Используйте отдельную базу данных Plugin Manager. Для существующей установки перед
+запуском приложения проверьте владельцев ролей и привилегии. В средах, отличных от
+локальной, задайте безопасные пароли и настройте `DB_PASSWORD` и
+`DB_MIGRATION_PASSWORD`; не используйте пароли для разработки.
 
 ### Применение миграций и генерация моделей
 
-Put Flyway SQL migrations in `src/main/resources/db/migration` using names such as
-`V1__create_plugins.sql`. Quarkus applies them automatically on application startup.
+Размещайте SQL-миграции Flyway в `src/main/resources/db/migration`, используя имена
+вида `V1__create_plugins.sql`. Quarkus автоматически применяет их при запуске приложения.
 
 Сгенерируйте модель jOOQ командой:
 
@@ -136,22 +139,22 @@ Put Flyway SQL migrations in `src/main/resources/db/migration` using names such 
 ./gradlew generateJooq
 ```
 
-The task starts an ephemeral PostgreSQL Testcontainer, applies all Flyway migrations,
-and writes the generated Java model to `build/generated/sources/jooq/main/java`. The output
-directory is intentionally excluded from Git and is also generated automatically before
-the project's Java or Kotlin compilation tasks.
+Задача запускает временный PostgreSQL Testcontainer, применяет все миграции Flyway и
+записывает сгенерированную Java-модель в `build/generated/sources/jooq/main/java`.
+Каталог с результатами намеренно исключён из Git и также автоматически создаётся
+перед задачами компиляции Java или Kotlin проекта.
 
-Runtime database access uses jOOQ over a pooled R2DBC connection. Configure it with the
-following environment variables: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`,
+Для доступа к базе данных во время работы используется jOOQ поверх пулированного
+соединения R2DBC. Настройте его следующими переменными окружения: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`,
 `DB_PASSWORD`, `DB_MIGRATION_USERNAME`, `DB_MIGRATION_PASSWORD`,
 `DB_POOL_INITIAL_SIZE`, `DB_POOL_MAX_SIZE`, `DB_POOL_MAX_IDLE_TIME`,
-`DB_POOL_MAX_ACQUIRE_TIME`, `DB_POOL_MAX_CREATE_CONNECTION_TIME`, and
-`DB_MIGRATION_POOL_MAX_SIZE`. Duration values use ISO-8601 notation, for example `PT10S`
-or `PT30M`. The `plugin_manager_app` role and R2DBC pool are used for application queries;
-the separate `plugin_manager_migration` role and small JDBC pool are used only by Flyway.
+`DB_POOL_MAX_ACQUIRE_TIME`, `DB_POOL_MAX_CREATE_CONNECTION_TIME` и
+`DB_MIGRATION_POOL_MAX_SIZE`. Значения длительности используют формат ISO-8601, например `PT10S`
+или `PT30M`. Роль `plugin_manager_app` и пул R2DBC используются для запросов приложения;
+отдельная роль `plugin_manager_migration` и небольшой пул JDBC используются только Flyway.
 
-Use `JooqTransaction` for suspend transactions and execute all statements through the
-transaction-scoped `DSLContext` passed to the block:
+Используйте `JooqTransaction` для suspend-транзакций и выполняйте все запросы через
+переданный в блок `DSLContext`, ограниченный областью транзакции:
 
 ```kotlin
 transaction.transaction { dsl ->
@@ -171,23 +174,23 @@ transaction.transaction { dsl ->
 ./gradlew build
 ```
 
-It produces the `quarkus-run.jar` file in the `build/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `build/quarkus-app/lib/` directory.
+Команда создаёт файл `quarkus-run.jar` в каталоге `build/quarkus-app/`.
+Это не _über-jar_: зависимости копируются в каталог `build/quarkus-app/lib/`.
 
-The application is now runnable using `java -jar build/quarkus-app/quarkus-run.jar`.
+После этого приложение можно запустить командой `java -jar build/quarkus-app/quarkus-run.jar`.
 
-If you want to build an _über-jar_, execute the following command:
+Чтобы собрать _über-jar_, выполните следующую команду:
 
 ```shell script
 ./gradlew build -Dquarkus.package.jar.type=uber-jar
 ```
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar build/*-runner.jar`.
+Приложение, упакованное как _über-jar_, можно запустить командой `java -jar build/*-runner.jar`.
 
-### Building the JVM container image
+### Сборка образа контейнера JVM
 
-Java 21 and a running Docker daemon are required. The Quarkus `imageBuild` task
-packages the application and builds the image using
+Требуются Java 21 и работающий демон Docker. Задача Quarkus `imageBuild` упаковывает
+приложение и собирает образ с помощью
 `src/main/docker/Dockerfile.jvm`:
 
 ```shell script
@@ -199,11 +202,12 @@ packages the application and builds the image using
   -Dquarkus.container-image.tag=jvm
 ```
 
-The resulting local image is `local/plugin-manage-service:jvm`.
+Результирующий локальный образ — `local/plugin-manage-service:jvm`.
 
 ## Создание native-исполняемого файла
 
-Native compilation requires Docker and a running Docker daemon. The build first generates jOOQ and Protobuf sources, then produces the native runner:
+Для нативной компиляции требуются Docker и работающий демон Docker. Сначала сборка
+генерирует исходный код jOOQ и Protobuf, затем создаёт native runner:
 
 ```shell script
 ./gradlew nativeTest \
@@ -212,9 +216,10 @@ Native compilation requires Docker and a running Docker daemon. The build first 
   -Dquarkus.package.jar.enabled=false
 ```
 
-The command creates `build/plugin-manage-service-1.0.0-SNAPSHOT-runner` and runs the native-image liveness test against that executable.
+Команда создаёт `build/plugin-manage-service-1.0.0-SNAPSHOT-runner` и запускает
+проверку работоспособности native-image для этого исполняемого файла.
 
-To build the executable without running native tests, use:
+Чтобы собрать исполняемый файл без запуска native-тестов, используйте:
 
 ```shell script
 ./gradlew quarkusBuild \
@@ -223,21 +228,24 @@ To build the executable without running native tests, use:
   -Dquarkus.package.jar.enabled=false
 ```
 
-The Dockerfile is runtime-only and packages the prebuilt native runner; it does not run Gradle or Testcontainers during `docker build`:
+Dockerfile предназначен только для запуска и упаковывает предварительно собранный
+native runner; Gradle и Testcontainers не запускаются во время `docker build`:
 
 ```shell script
 docker build -t plugin-manage-service:native .
 docker run --rm -p 8080:8080 -p 9000:9000 plugin-manage-service:native
 ```
 
-The CI pipeline runs the `native-test` stage after JVM integration tests. It builds the native image in a container and executes `nativeTest`.
+CI pipeline запускает этап `native-test` после интеграционных тестов JVM. Он собирает
+native image в контейнере и выполняет `nativeTest`.
 
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/gradle-tooling>.
+Подробнее о сборке нативных исполняемых файлов см. в руководстве
+<https://quarkus.io/guides/gradle-tooling>.
 
 ## Связанные руководства
 
-- REST Jackson ([guide](https://quarkus.io/guides/rest#json-serialisation)): Jackson serialization support for Quarkus REST. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it
-- Flyway ([guide](https://quarkus.io/guides/flyway)): Handle your database schema migrations
-- Kotlin ([guide](https://quarkus.io/guides/kotlin)): Write your services in Kotlin
-- Quartz ([guide](https://quarkus.io/guides/quartz)): Schedule clustered tasks with Quartz
-- JDBC Driver - PostgreSQL ([guide](https://quarkus.io/guides/datasource)): Connect to the PostgreSQL database via JDBC
+- REST Jackson ([руководство](https://quarkus.io/guides/rest#json-serialisation)): поддержка сериализации Jackson для Quarkus REST. Это расширение несовместимо с расширением quarkus-resteasy и любыми расширениями, которые от него зависят
+- Flyway ([руководство](https://quarkus.io/guides/flyway)): управление миграциями схемы базы данных
+- Kotlin ([руководство](https://quarkus.io/guides/kotlin)): написание сервисов на Kotlin
+- Quartz ([руководство](https://quarkus.io/guides/quartz)): планирование кластеризованных задач с Quartz
+- JDBC Driver — PostgreSQL ([руководство](https://quarkus.io/guides/datasource)): подключение к базе данных PostgreSQL через JDBC
