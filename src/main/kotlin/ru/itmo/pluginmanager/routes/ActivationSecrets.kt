@@ -2,6 +2,8 @@ package ru.itmo.pluginmanager.routes
 
 import jakarta.enterprise.context.ApplicationScoped
 import org.eclipse.microprofile.config.inject.ConfigProperty
+import ru.itmo.pluginmanager.domain.ErrorCode
+import ru.itmo.pluginmanager.domain.PluginManagerException
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.Base64
@@ -20,7 +22,9 @@ class ActivationSecrets(
     private val keyBytes = key.toByteArray(StandardCharsets.UTF_8)
 
     fun issue(callId: String, activationId: String): String {
-        check(keyBytes.size >= MINIMUM_KEY_BYTES)
+        if (keyBytes.size < MINIMUM_KEY_BYTES) {
+            throw PluginManagerException(ErrorCode.INTERNAL_ERROR, "Activation secret key is not configured")
+        }
         val mac = Mac.getInstance("HmacSHA256")
         mac.init(SecretKeySpec(keyBytes, "HmacSHA256"))
         val message = "$activationId\u0000$callId".toByteArray(StandardCharsets.UTF_8)

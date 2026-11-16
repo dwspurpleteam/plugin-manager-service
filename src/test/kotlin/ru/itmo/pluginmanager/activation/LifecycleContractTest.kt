@@ -29,6 +29,7 @@ import ru.itmo.pluginmanager.worker.activation.DefaultActivationProcessor
 import ru.itmo.pluginmanager.worker.health.DefaultHealthcheckProcessor
 import java.time.Clock
 import java.time.Instant
+import java.util.UUID
 
 class LifecycleContractTest {
     private val store = MemoryStores()
@@ -137,6 +138,14 @@ class LifecycleContractTest {
             runBlocking { sender.notify("http://example.org/activation", requireNotNull(sentMessage)) }
         }
         assertEquals(ErrorCode.INVALID_MANIFEST, failure.code)
+    }
+
+    @Test
+    fun `reports a missing activation secret key`() {
+        val failure = assertThrows(PluginManagerException::class.java) {
+            ActivationSecrets("disabled").issue("call", UUID.randomUUID().toString())
+        }
+        assertEquals(ErrorCode.INTERNAL_ERROR, failure.code)
     }
 
     /**
