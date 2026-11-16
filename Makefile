@@ -2,7 +2,7 @@
 IMAGE ?= ghcr.io/dwspurpleteam/pluginmanager
 override TAG := $(shell git rev-parse HEAD)
 PLATFORM ?= linux/amd64
-DOCKERFILE ?= Dockerfile
+DOCKERFILE ?= src/main/docker/Dockerfile.jvm
 
 .PHONY: image-build
 image-build:

@@ -122,4 +122,5 @@ jobs:
       service: pluginmanager
       artifact: quarkus-app
       artifact-path: build/quarkus-app
+      dockerfile: src/main/docker/Dockerfile.jvm
     secrets: inherit
