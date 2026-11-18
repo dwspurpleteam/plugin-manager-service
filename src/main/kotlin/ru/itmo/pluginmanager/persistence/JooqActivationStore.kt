@@ -16,6 +16,7 @@ import ru.itmo.pluginmanager.jooq.generated.Tables.ACTIVATION_ROUTE
 import ru.itmo.pluginmanager.jooq.generated.Tables.ACTIVATION_STATE_HISTORY
 import ru.itmo.pluginmanager.jooq.generated.Tables.ACTIVATION_WORK
 import ru.itmo.pluginmanager.jooq.generated.Tables.PLUGIN_ACTIVATION
+import ru.itmo.pluginmanager.metrics.PluginManagerMetrics
 import ru.itmo.pluginmanager.worker.WorkLease
 import java.time.Instant
 import java.time.ZoneOffset
@@ -24,7 +25,9 @@ import ru.itmo.pluginmanager.jooq.generated.enums.ActivationState as DatabaseAct
 import ru.itmo.pluginmanager.jooq.generated.enums.ActivationWorkKind as DatabaseActivationWorkKind
 
 @ApplicationScoped
-class JooqActivationStore(private val transaction: JooqTransaction) : ActivationStore {
+class JooqActivationStore(private val transaction: JooqTransaction, private val metrics: PluginManagerMetrics) :
+    ActivationStore {
+
     override suspend fun register(request: ActivationRequest): RegistrationResult = transaction.transaction { dsl ->
         val id = UUID.randomUUID()
         val inserted = dsl.insertInto(PLUGIN_ACTIVATION)
@@ -53,7 +56,7 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
                 .set(ACTIVATION_WORK.KIND, DatabaseActivationWorkKind.ACTIVATE).awaitSingle()
             RegistrationResult(id, true)
         }
-    }
+    }.also { if (it.created) metrics.callRegistered() }
 
     override suspend fun find(activationId: UUID) = transaction.transaction { dsl ->
         dsl.selectFrom(PLUGIN_ACTIVATION)
@@ -126,16 +129,19 @@ class JooqActivationStore(private val transaction: JooqTransaction) : Activation
                 .setNull(ACTIVATION_WORK.LAST_ERROR_CODE)
                 .where(ACTIVATION_WORK.ACTIVATION_ID.eq(lease.activationId))
                 .awaitSingle()
+            metrics.pluginActivated()
         }
     }
 
     override suspend fun fail(lease: WorkLease, reason: ErrorCode) {
         transaction.transaction { dsl ->
             val activation = dsl.lockActivation(lease)
+            val wasActive = activation.state == DatabaseActivationState.ACTIVE
             dsl.changeState(activation, ActivationState.FAILED, reason)
             dsl.deleteFrom(ACTIVATION_WORK)
                 .where(ACTIVATION_WORK.ACTIVATION_ID.eq(lease.activationId))
                 .awaitSingle()
+            metrics.pluginFailed(wasActive)
         }
     }
 }

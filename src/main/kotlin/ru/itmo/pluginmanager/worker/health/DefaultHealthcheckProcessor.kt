@@ -4,6 +4,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import ru.itmo.pluginmanager.config.PluginManagerConfig
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.health.PluginHealthcheck
+import ru.itmo.pluginmanager.metrics.PluginManagerMetrics
 import ru.itmo.pluginmanager.persistence.ActivationStore
 import ru.itmo.pluginmanager.persistence.WorkStore
 import ru.itmo.pluginmanager.worker.WorkKind
@@ -18,6 +19,7 @@ class DefaultHealthcheckProcessor(
     private val health: PluginHealthcheck,
     private val config: PluginManagerConfig,
     private val clock: Clock,
+    private val metrics: PluginManagerMetrics,
 ) : WorkerProcessor {
     override val kind = WorkKind.HEALTHCHECK
 
@@ -26,6 +28,7 @@ class DefaultHealthcheckProcessor(
         if (activation.state != ActivationState.ACTIVE) return
         val route = store.route(lease.activationId)
         val healthy = route != null && health.check(route.healthcheckUrl)
+        if (!healthy) metrics.healthcheckFailed(lease.consecutiveHealthFailures)
         work.recordHealthcheck(
             lease,
             healthy,

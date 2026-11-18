@@ -23,6 +23,7 @@ class PostgresTestResource : QuarkusTestResourceLifecycleManager {
             "quarkus.datasource.migration.jdbc.url" to postgres.jdbcUrl,
             "quarkus.datasource.migration.username" to postgres.username,
             "quarkus.datasource.migration.password" to postgres.password,
+            "quarkus.flyway.migration.migrate-at-start" to "true",
         )
     }
 

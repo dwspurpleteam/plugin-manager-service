@@ -92,8 +92,11 @@ dependencies {
     implementation(libs.org.jooq.jooq.kotlin)
     implementation(libs.org.jooq.jooq.kotlin.coroutines)
 
+    // Observability
+    // Micrometer registry and Prometheus exposition endpoint.
+    implementation(libs.io.quarkus.quarkus.micrometer.registry.prometheus)
+
     // Реактивный доступ к PostgreSQL
-    implementation(libs.io.micrometer.micrometer.core)
     implementation(libs.org.locationtech.jts.core)
     implementation(libs.org.postgresql.r2dbc.postgresql)
     implementation(libs.io.r2dbc.r2dbc.pool)

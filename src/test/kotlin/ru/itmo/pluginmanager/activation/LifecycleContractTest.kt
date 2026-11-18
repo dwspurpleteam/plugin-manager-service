@@ -1,5 +1,6 @@
 package ru.itmo.pluginmanager.activation
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -16,6 +17,7 @@ import ru.itmo.pluginmanager.domain.PluginEvents
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
 import ru.itmo.pluginmanager.health.PluginHealthcheck
+import ru.itmo.pluginmanager.metrics.PluginManagerMetrics
 import ru.itmo.pluginmanager.support.MemoryStores
 import ru.itmo.pluginmanager.support.manifest
 import ru.itmo.pluginmanager.support.policy
@@ -148,6 +150,7 @@ class LifecycleContractTest {
             health,
             policy(),
             Clock.systemUTC(),
+            PluginManagerMetrics(SimpleMeterRegistry()),
         )
         probe.process(store.lease)
         assertEquals(WorkKind.HEALTHCHECK, probe.kind)

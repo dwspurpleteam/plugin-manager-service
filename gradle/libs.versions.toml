@@ -38,7 +38,7 @@ org-jooq-jooq-kotlin-coroutines = { group = "org.jooq", name = "jooq-kotlin-coro
 org-jooq-jooq-codegen = { group = "org.jooq", name = "jooq-codegen", version.ref = "org-jooq-jooq-version" }
 org-flywaydb-flyway-core = { group = "org.flywaydb", name = "flyway-core" }
 org-flywaydb-flyway-database-postgresql = { group = "org.flywaydb", name = "flyway-database-postgresql" }
-io-micrometer-micrometer-core = { group = "io.micrometer", name = "micrometer-core" }
+io-quarkus-quarkus-micrometer-registry-prometheus = { group = "io.quarkus", name = "quarkus-micrometer-registry-prometheus" }
 org-locationtech-jts-core = { group = "org.locationtech.jts", name = "jts-core", version.ref = "org-locationtech-jts-version" }
 org-postgresql-postgresql = { group = "org.postgresql", name = "postgresql" }
 org-testcontainers-testcontainers-postgresql = { group = "org.testcontainers", name = "testcontainers-postgresql" }
