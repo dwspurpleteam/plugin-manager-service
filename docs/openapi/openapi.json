@@ -2,6 +2,92 @@
   "openapi" : "3.1.0",
   "components" : {
     "schemas" : {
+      "ActivationContext" : {
+        "type" : "object",
+        "required" : [ "callId", "snapshot" ],
+        "properties" : {
+          "callId" : {
+            "type" : "string"
+          },
+          "roomName" : {
+            "type" : [ "string", "null" ]
+          },
+          "startDate" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "endDate" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "participantCount" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "recordingActive" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "maxParticipants" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "participants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ActivationParticipant"
+            }
+          },
+          "snapshot" : {
+            "$ref" : "#/components/schemas/ActivationContextSnapshot"
+          }
+        }
+      },
+      "ActivationContextSnapshot" : {
+        "type" : "object",
+        "required" : [ "capturedAt", "source", "consistency" ],
+        "properties" : {
+          "capturedAt" : {
+            "$ref" : "#/components/schemas/Instant"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "consistency" : {
+            "$ref" : "#/components/schemas/SnapshotConsistency"
+          }
+        }
+      },
+      "ActivationParticipant" : {
+        "type" : "object",
+        "required" : [ "participantIdentity" ],
+        "properties" : {
+          "participantIdentity" : {
+            "type" : "string"
+          },
+          "participantName" : {
+            "type" : [ "string", "null" ]
+          },
+          "metadata" : {
+            "type" : [ "string", "null" ]
+          },
+          "role" : {
+            "type" : [ "string", "null" ]
+          },
+          "joinDate" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "audioActive" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "videoActive" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "screenShareActive" : {
+            "type" : [ "boolean", "null" ]
+          }
+        }
+      },
       "ActivationResponse" : {
         "type" : "object",
         "required" : [ "activationId", "callId", "pluginId", "requestedVersion", "requestedRegistryId", "requestedBy", "pluginVersion", "registryId", "state", "stateChangedAt", "failureCode" ],
@@ -69,12 +155,87 @@
       },
       "ErrorCode" : {
         "type" : "string",
-        "enum" : [ "INVALID_REQUEST", "UNKNOWN_REGISTRY", "PLUGIN_NOT_FOUND", "ACTIVATION_NOT_FOUND", "IDEMPOTENCY_CONFLICT", "ACTIVATION_NOT_READY", "ACTIVATION_FAILED", "ACTIVATION_NOT_ACTIVE", "REGISTRY_UNAVAILABLE", "REGISTRY_INVALID_RESPONSE", "INVALID_MANIFEST", "HEALTHCHECK_FAILED", "ACTIVATION_ATTEMPTS_EXHAUSTED", "LEASE_LOST", "DATABASE_UNAVAILABLE", "INTERNAL_ERROR" ]
+        "enum" : [ "INVALID_REQUEST", "UNKNOWN_REGISTRY", "PLUGIN_NOT_FOUND", "ACTIVATION_NOT_FOUND", "IDEMPOTENCY_CONFLICT", "MANIFEST_VERSION_CONFLICT", "ACTIVATION_NOT_READY", "ACTIVATION_FAILED", "ACTIVATION_NOT_ACTIVE", "REGISTRY_UNAVAILABLE", "REGISTRY_INVALID_RESPONSE", "INVALID_MANIFEST", "HEALTHCHECK_FAILED", "ACTIVATION_ATTEMPTS_EXHAUSTED", "LEASE_LOST", "DATABASE_UNAVAILABLE", "INTERNAL_ERROR" ]
       },
       "Instant" : {
         "type" : "string",
         "format" : "date-time",
         "examples" : [ "2022-03-10T16:15:50Z" ]
+      },
+      "JsonNode" : {
+        "type" : "object",
+        "properties" : {
+          "empty" : {
+            "type" : "boolean"
+          },
+          "valueNode" : {
+            "type" : "boolean"
+          },
+          "containerNode" : {
+            "type" : "boolean"
+          },
+          "missingNode" : {
+            "type" : "boolean"
+          },
+          "array" : {
+            "type" : "boolean"
+          },
+          "object" : {
+            "type" : "boolean"
+          },
+          "nodeType" : {
+            "$ref" : "#/components/schemas/JsonNodeType"
+          },
+          "pojo" : {
+            "type" : "boolean"
+          },
+          "number" : {
+            "type" : "boolean"
+          },
+          "integralNumber" : {
+            "type" : "boolean"
+          },
+          "floatingPointNumber" : {
+            "type" : "boolean"
+          },
+          "short" : {
+            "type" : "boolean"
+          },
+          "int" : {
+            "type" : "boolean"
+          },
+          "long" : {
+            "type" : "boolean"
+          },
+          "float" : {
+            "type" : "boolean"
+          },
+          "double" : {
+            "type" : "boolean"
+          },
+          "bigDecimal" : {
+            "type" : "boolean"
+          },
+          "bigInteger" : {
+            "type" : "boolean"
+          },
+          "textual" : {
+            "type" : "boolean"
+          },
+          "boolean" : {
+            "type" : "boolean"
+          },
+          "null" : {
+            "type" : "boolean"
+          },
+          "binary" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "JsonNodeType" : {
+        "type" : "string",
+        "enum" : [ "ARRAY", "BINARY", "BOOLEAN", "MISSING", "NULL", "NUMBER", "OBJECT", "POJO", "STRING" ]
       },
       "MediaType" : {
         "type" : "string",
@@ -105,21 +266,38 @@
           "health-url" : {
             "type" : "string"
           },
-          "events" : {
-            "$ref" : "#/components/schemas/PluginEvents"
+          "control-url" : {
+            "type" : "string"
           },
           "media" : {
             "$ref" : "#/components/schemas/PluginMedia"
+          },
+          "events" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/PluginEvents"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "actions" : {
+            "type" : "array",
+            "uniqueItems" : true,
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "initial-state" : {
+            "type" : "array",
+            "uniqueItems" : true,
+            "items" : {
+              "type" : "string"
+            }
           }
-        },
-        "required" : [ "events", "media" ]
+        }
       },
       "PluginEvents" : {
         "type" : "object",
         "properties" : {
-          "event-url" : {
-            "type" : "string"
-          },
           "available-event-types" : {
             "type" : [ "array", "null" ],
             "uniqueItems" : true,
@@ -176,7 +354,6 @@
       },
       "PluginMedia" : {
         "type" : "object",
-        "required" : [ "input", "output" ],
         "properties" : {
           "input" : {
             "type" : "array",
@@ -215,6 +392,13 @@
           },
           "pluginRegistryId" : {
             "type" : [ "string", "null" ]
+          },
+          "initialContext" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ActivationContext"
+            }, {
+              "type" : "null"
+            } ]
           }
         }
       },
@@ -241,6 +425,10 @@
             "type" : "string"
           }
         }
+      },
+      "SnapshotConsistency" : {
+        "type" : "string",
+        "enum" : [ "point-in-time", "eventual", "partial" ]
       },
       "UUID" : {
         "type" : "string",
@@ -355,6 +543,35 @@
         },
         "summary" : "Signal Route",
         "tags" : [ "Activation Resource" ]
+      }
+    },
+    "/v1/manifest-versions" : {
+      "post" : {
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonNode"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : { }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request"
+          }
+        },
+        "summary" : "Register",
+        "tags" : [ "Manifest Version Resource" ]
       }
     },
     "/v1/plugins/{pluginId}/configuration" : {

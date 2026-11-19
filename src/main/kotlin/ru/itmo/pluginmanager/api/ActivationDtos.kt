@@ -1,5 +1,6 @@
 package ru.itmo.pluginmanager.api
 
+import ru.itmo.pluginmanager.domain.ActivationContext
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.MediaType
@@ -13,6 +14,7 @@ data class RegisterActivationRequest(
     val idempotencyKey: String,
     val pluginVersion: String? = null,
     val pluginRegistryId: String? = null,
+    val initialContext: ActivationContext? = null,
 )
 
 data class RegisterActivationResponse(val activationId: UUID)

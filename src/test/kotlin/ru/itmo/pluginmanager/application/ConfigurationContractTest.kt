@@ -1,5 +1,8 @@
 package ru.itmo.pluginmanager.application
 
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -7,7 +10,6 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginManagerException
-import ru.itmo.pluginmanager.domain.PluginManifest
 import ru.itmo.pluginmanager.registry.PluginRegistry
 import ru.itmo.pluginmanager.registry.RegistryPage
 import ru.itmo.pluginmanager.registry.RegistryPlugin
@@ -16,6 +18,7 @@ import ru.itmo.pluginmanager.support.policy
 
 class ConfigurationContractTest {
 
+    private val mapper = ObjectMapper().registerKotlinModule()
     private var calls = 0
     private val registry = object : PluginRegistry {
         override suspend fun plugins(registryId: String, page: Int, limit: Int) =
@@ -23,12 +26,12 @@ class ConfigurationContractTest {
 
         override suspend fun versions(registryId: String, pluginId: String) = listOf("2.0.0", "1.0.0")
 
-        override suspend fun manifest(registryId: String, pluginId: String, version: String): PluginManifest? {
+        override suspend fun manifest(registryId: String, pluginId: String, version: String): JsonNode? {
             calls++
             if (registryId == "down") throw PluginManagerException(ErrorCode.REGISTRY_UNAVAILABLE, "Unavailable")
             if (pluginId == "missing") return null
             if (registryId == "slow") delay(100)
-            return manifest(version)
+            return mapper.valueToTree(manifest(version))
         }
     }
 
@@ -41,7 +44,14 @@ class ConfigurationContractTest {
             ),
         ),
         registry,
+        acceptingSchemas,
+        mapper,
     )
+
+    private val acceptingSchemas = object : ManifestSchemaService {
+        override suspend fun register(schema: JsonNode) = error("Not used")
+        override suspend fun validate(manifest: JsonNode) = Unit
+    }
 
     /**
      * Тест проверяет конкурентный поиск без приоритетов реестров при недоступности одного из них.

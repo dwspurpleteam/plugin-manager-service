@@ -1,8 +1,17 @@
 package ru.itmo.pluginmanager.registry
 
-import ru.itmo.pluginmanager.domain.PluginManifest
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.databind.JsonNode
 
-data class RegistryPlugin(val id: String, val name: String, val description: String, val latestVersion: String)
+data class RegistryPlugin(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+    val latestVersion: String? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class RegistryVersion(val version: String)
 
 data class RegistryPage<T>(
     val items: List<T>,
@@ -21,5 +30,5 @@ interface PluginRegistry {
     suspend fun versions(registryId: String, pluginId: String): List<String>
 
     /** Получает манифест через маршрут конкретной версии; null означает HTTP 404. */
-    suspend fun manifest(registryId: String, pluginId: String, version: String): PluginManifest?
+    suspend fun manifest(registryId: String, pluginId: String, version: String): JsonNode?
 }

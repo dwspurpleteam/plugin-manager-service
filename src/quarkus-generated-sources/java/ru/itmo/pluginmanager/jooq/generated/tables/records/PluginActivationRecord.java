@@ -7,6 +7,7 @@ package ru.itmo.pluginmanager.jooq.generated.tables.records;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+import org.jooq.JSONB;
 import org.jooq.Record1;
 import org.jooq.impl.UpdatableRecordImpl;
 
@@ -218,6 +219,14 @@ public class PluginActivationRecord extends UpdatableRecordImpl<PluginActivation
         return (String) get(13);
     }
 
+    public void setInitialContext(JSONB value) {
+        set(14, value);
+    }
+
+    public JSONB getInitialContext() {
+        return (JSONB) get(14);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -241,7 +250,7 @@ public class PluginActivationRecord extends UpdatableRecordImpl<PluginActivation
     /**
      * Create a detached, initialised PluginActivationRecord
      */
-    public PluginActivationRecord(UUID activationId, String callId, String pluginId, String requestedVersion, String requestedRegistryId, String requestedBy, String idempotencyKey, String resolvedRegistryId, String resolvedVersion, ActivationState state, Long stateRevision, OffsetDateTime createdAt, OffsetDateTime stateChangedAt, String failureCode) {
+    public PluginActivationRecord(UUID activationId, String callId, String pluginId, String requestedVersion, String requestedRegistryId, String requestedBy, String idempotencyKey, String resolvedRegistryId, String resolvedVersion, ActivationState state, Long stateRevision, OffsetDateTime createdAt, OffsetDateTime stateChangedAt, String failureCode, JSONB initialContext) {
         super(PluginActivation.PLUGIN_ACTIVATION);
 
         setActivationId(activationId);
@@ -258,6 +267,7 @@ public class PluginActivationRecord extends UpdatableRecordImpl<PluginActivation
         setCreatedAt(createdAt);
         setStateChangedAt(stateChangedAt);
         setFailureCode(failureCode);
+        setInitialContext(initialContext);
         resetTouchedOnNotNull();
     }
 }

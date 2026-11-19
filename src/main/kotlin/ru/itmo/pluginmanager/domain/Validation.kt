@@ -20,11 +20,9 @@ internal fun validateHttpUrl(value: String, code: ErrorCode = ErrorCode.INVALID_
 }
 
 internal fun validateManifest(selection: PluginSelection, manifest: PluginManifest) {
-    if (manifest.pluginId != selection.pluginId || manifest.pluginVersion != selection.pluginVersion ||
-        manifest.manifestVersion != "0.1"
-    ) {
-        throw PluginManagerException(ErrorCode.INVALID_MANIFEST, "Manifest identity or format mismatch")
+    if (manifest.pluginId != selection.pluginId || manifest.pluginVersion != selection.pluginVersion) {
+        throw PluginManagerException(ErrorCode.INVALID_MANIFEST, "Manifest identity mismatch")
     }
-    validateHttpUrl(manifest.backend.events.eventUrl)
+    validateHttpUrl(manifest.backend.controlUrl)
     validateHttpUrl(manifest.backend.healthUrl)
 }

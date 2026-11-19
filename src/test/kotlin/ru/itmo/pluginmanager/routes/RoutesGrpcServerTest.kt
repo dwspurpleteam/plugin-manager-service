@@ -3,6 +3,8 @@ package ru.itmo.pluginmanager.routes
 import org.eclipse.microprofile.context.ThreadContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import ru.itmo.pluginmanager.routes.v1.CheckActionPermissionRequest
+import ru.itmo.pluginmanager.routes.v1.CheckActionPermissionResponse
 import ru.itmo.pluginmanager.routes.v1.CheckEventPermissionRequest
 import ru.itmo.pluginmanager.routes.v1.CheckEventPermissionResponse
 import ru.itmo.pluginmanager.routes.v1.CheckMediaPermissionRequest
@@ -18,6 +20,8 @@ class RoutesGrpcServerTest {
         val executor = ThreadContext.builder().build()
         val methods = RoutesGrpcServer(
             object : RoutesService {
+                override suspend fun checkAction(request: CheckActionPermissionRequest) =
+                    CheckActionPermissionResponse.getDefaultInstance()
                 override suspend fun getPermissionsForEvent(request: CheckEventPermissionRequest) =
                     CheckEventPermissionResponse.getDefaultInstance()
 
@@ -35,6 +39,7 @@ class RoutesGrpcServerTest {
             setOf(
                 "routes.v1.RoutesService/CheckEventPermission",
                 "routes.v1.RoutesService/CheckMediaPermission",
+                "routes.v1.RoutesService/CheckActionPermission",
             ),
             methods,
         )

@@ -2,6 +2,7 @@ package ru.itmo.pluginmanager.registry
 
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder
 import jakarta.annotation.PreDestroy
@@ -12,7 +13,6 @@ import org.jboss.resteasy.reactive.RestResponse
 import ru.itmo.pluginmanager.config.PluginManagerConfig
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginManagerException
-import ru.itmo.pluginmanager.domain.PluginManifest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -35,20 +35,36 @@ class HttpPluginRegistry(private val config: PluginManagerConfig, private val ma
         val result = read<RegistryPage<RegistryPlugin>> { client(registryId).plugins(page, limit) }
             ?: throw PluginManagerException(ErrorCode.REGISTRY_INVALID_RESPONSE, "Registry listing is unavailable")
         val invalidPage = result.page != page || result.limit != limit || result.totalItems < 0 || result.totalPages < 0
-        val invalidItems =
-            result.items.size > limit || result.items.any { it.id.isBlank() || it.latestVersion.isBlank() }
+        val invalidItems = result.items.size > limit || result.items.any {
+            it.id.isBlank() || it.latestVersion?.isBlank() == true
+        }
         if (invalidPage || invalidItems) {
             throw PluginManagerException(ErrorCode.REGISTRY_INVALID_RESPONSE, "Invalid registry pagination")
         }
         return result
     }
 
-    override suspend fun versions(registryId: String, pluginId: String): List<String> =
-        read<List<String>> { client(registryId).versions(pluginId) }
-            ?: throw PluginManagerException(ErrorCode.PLUGIN_NOT_FOUND, "Plugin not found")
+    override suspend fun versions(registryId: String, pluginId: String): List<String> {
+        val versions = mutableListOf<String>()
+        var page = 1
+        val limit = 20
+        do {
+            val result = read<RegistryPage<RegistryVersion>> { client(registryId).versions(pluginId, page, limit) }
+                ?: throw PluginManagerException(ErrorCode.PLUGIN_NOT_FOUND, "Plugin not found")
+            val invalidPage = result.page != page || result.limit != limit || result.totalItems < 0 ||
+                result.totalPages < 0
+            val invalidItems = result.items.size > limit || result.items.any { it.version.isBlank() }
+            if (invalidPage || invalidItems) {
+                throw PluginManagerException(ErrorCode.REGISTRY_INVALID_RESPONSE, "Invalid registry pagination")
+            }
+            versions.addAll(result.items.map { it.version })
+            page++
+        } while (page <= result.totalPages)
+        return versions
+    }
 
-    override suspend fun manifest(registryId: String, pluginId: String, version: String): PluginManifest? =
-        read<PluginManifest> { client(registryId).manifest(pluginId, version) }
+    override suspend fun manifest(registryId: String, pluginId: String, version: String): JsonNode? =
+        read<JsonNode> { client(registryId).manifest(pluginId, version) }
 
     private inline fun <reified T> read(request: () -> RestResponse<String>): T? = try {
         request().use { response ->

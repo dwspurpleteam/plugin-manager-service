@@ -1,14 +1,18 @@
 package ru.itmo.pluginmanager.persistence
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 import org.jboss.logging.Logger
 import org.jooq.DSLContext
+import org.jooq.impl.DSL.field
 import ru.itmo.pluginmanager.domain.Activation
+import ru.itmo.pluginmanager.domain.ActivationContext
 import ru.itmo.pluginmanager.domain.ActivationRequest
 import ru.itmo.pluginmanager.domain.ActivationRoute
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
+import ru.itmo.pluginmanager.domain.MediaType
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
 import ru.itmo.pluginmanager.jooq.generated.Tables.ACTIVATION_ROUTE
@@ -74,9 +78,17 @@ internal suspend fun DSLContext.changeState(
     }
 }
 
-internal fun PluginActivationRecord.toDomain(): Activation = Activation(
+internal fun PluginActivationRecord.toDomain(mapper: ObjectMapper): Activation = Activation(
     activationId,
-    ActivationRequest(callId, pluginId, requestedBy, idempotencyKey, requestedVersion, requestedRegistryId),
+    ActivationRequest(
+        callId,
+        pluginId,
+        requestedBy,
+        idempotencyKey,
+        requestedVersion,
+        requestedRegistryId,
+        initialContext?.data()?.let { mapper.readValue(it, ActivationContext::class.java) },
+    ),
     resolvedVersion?.let { PluginSelection(pluginId, it, resolvedRegistryId) },
     ActivationState.valueOf(state.name),
     stateRevision,
@@ -85,14 +97,21 @@ internal fun PluginActivationRecord.toDomain(): Activation = Activation(
     failureCode?.let(ErrorCode::valueOf),
 )
 
-internal suspend fun DSLContext.readRoute(id: UUID): ActivationRoute? =
-    selectFrom(ACTIVATION_ROUTE).where(ACTIVATION_ROUTE.ACTIVATION_ID.eq(id)).awaitFirstOrNull()?.let {
-        ActivationRoute(
-            it.routeId,
-            id,
-            it.signalDst,
-            it.allowedEventTypes?.toSet(),
-            it.allowedEventGroups?.toSet(),
-            it.healthcheckUrl,
-        )
-    }
+internal suspend fun DSLContext.readRoute(id: UUID): ActivationRoute? = select(
+    ACTIVATION_ROUTE.asterisk(),
+    field("allowed_actions", Array<String>::class.java),
+    field("include_participants", Boolean::class.java),
+).from(ACTIVATION_ROUTE).where(ACTIVATION_ROUTE.ACTIVATION_ID.eq(id)).awaitFirstOrNull()?.let {
+    ActivationRoute(
+        checkNotNull(it.get(ACTIVATION_ROUTE.ROUTE_ID)),
+        id,
+        checkNotNull(it.get(ACTIVATION_ROUTE.SIGNAL_DST)),
+        it.get(ACTIVATION_ROUTE.ALLOWED_EVENT_TYPES)?.toSet(),
+        it.get(ACTIVATION_ROUTE.ALLOWED_EVENT_GROUPS)?.toSet(),
+        checkNotNull(it.get(ACTIVATION_ROUTE.HEALTHCHECK_URL)),
+        checkNotNull(it.get(ACTIVATION_ROUTE.MEDIA_TYPES))
+            .map { media -> MediaType.valueOf(media.name) }.toSet(),
+        it.get(field("allowed_actions", Array<String>::class.java)).toSet(),
+        it.get(field("include_participants", Boolean::class.java)) ?: false,
+    )
+}

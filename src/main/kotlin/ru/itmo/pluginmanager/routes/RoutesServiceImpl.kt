@@ -3,27 +3,42 @@ package ru.itmo.pluginmanager.routes
 import jakarta.enterprise.context.ApplicationScoped
 import ru.itmo.pluginmanager.application.ConfigurationService
 import ru.itmo.pluginmanager.domain.Activation
+import ru.itmo.pluginmanager.domain.ActivationRoute
+import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.persistence.ActivationStore
+import ru.itmo.pluginmanager.routes.v1.CheckActionPermissionRequest
+import ru.itmo.pluginmanager.routes.v1.CheckActionPermissionResponse
 import ru.itmo.pluginmanager.routes.v1.CheckEventPermissionRequest
 import ru.itmo.pluginmanager.routes.v1.CheckEventPermissionResponse
 import ru.itmo.pluginmanager.routes.v1.CheckMediaPermissionRequest
 import ru.itmo.pluginmanager.routes.v1.CheckMediaPermissionResponse
 import ru.itmo.pluginmanager.routes.v1.EventType
 import ru.itmo.pluginmanager.routes.v1.PluginInfo
+import java.util.UUID
 import ru.itmo.pluginmanager.domain.MediaType as ManifestMediaType
 import ru.itmo.pluginmanager.routes.v1.MediaType as RouteMediaType
 
 @ApplicationScoped
-class RoutesServiceImpl(private val activations: ActivationStore, private val configurations: ConfigurationService) :
-    RoutesService {
-    override suspend fun getPermissionsForEvent(request: CheckEventPermissionRequest): CheckEventPermissionResponse {
-        val pluginIds = activeActivations(request.callId)
-            .filter { activation ->
-                val events = configurations.get(requireNotNull(activation.selection)).manifest.backend.events
-                events.availableEventTypes?.let { request.eventType.eventName() in it }
-                    ?: (request.eventType.groupName() in events.availableEventGroups.orEmpty())
+class RoutesServiceImpl(
+    private val activations: ActivationStore,
+    @Suppress("UnusedPrivateProperty") private val configurations: ConfigurationService,
+    private val secrets: ActivationSecrets,
+) : RoutesService {
+    override suspend fun checkAction(request: CheckActionPermissionRequest): CheckActionPermissionResponse {
+        val allowed = request.activationId.isNotBlank() && request.action.isNotBlank() &&
+            activeRoutes(request.callId, request.activationId, request.activationSecret).any { (_, route) ->
+                request.action in route.allowedActions
             }
-            .map { it.request.pluginId }
+        return CheckActionPermissionResponse.newBuilder().setAllowed(allowed).build()
+    }
+
+    override suspend fun getPermissionsForEvent(request: CheckEventPermissionRequest): CheckEventPermissionResponse {
+        val pluginIds = activeRoutes(request.callId, request.activationId, request.activationSecret)
+            .filter { (_, route) ->
+                route.allowedEventTypes?.let { request.eventType.eventName() in it }
+                    ?: (request.eventType.groupName() in route.allowedEventGroups.orEmpty())
+            }
+            .map { (activation) -> activation.request.pluginId }
             .distinct()
         return CheckEventPermissionResponse.newBuilder()
             .setEventType(request.eventType)
@@ -34,15 +49,12 @@ class RoutesServiceImpl(private val activations: ActivationStore, private val co
 
     override suspend fun getPermissionsForMedia(request: CheckMediaPermissionRequest): CheckMediaPermissionResponse {
         val pluginIds = request.mediaType.manifestMediaType()?.let { requestedMediaType ->
-            activeActivations(request.callId)
-                .filter { activation ->
-                    val input = configurations.get(requireNotNull(activation.selection)).manifest.backend.media.input
-                    requestedMediaType in input
-                }
-                .map {
+            activeRoutes(request.callId, request.activationId, request.activationSecret)
+                .filter { (_, route) -> requestedMediaType in route.allowedMediaTypes }
+                .map { (activation) ->
                     PluginInfo.newBuilder()
-                        .setPluginId(it.request.pluginId)
-                        .setPluginVersion(requireNotNull(it.selection).pluginVersion)
+                        .setPluginId(activation.request.pluginId)
+                        .setPluginVersion(requireNotNull(activation.selection).pluginVersion)
                         .build()
                 }
                 .distinct()
@@ -54,7 +66,26 @@ class RoutesServiceImpl(private val activations: ActivationStore, private val co
             .build()
     }
 
-    private suspend fun activeActivations(callId: String): List<Activation> = activations.findActiveByCall(callId)
+    private suspend fun activeRoutes(
+        callId: String,
+        activationId: String,
+        secret: String,
+    ): List<Pair<Activation, ActivationRoute>> =
+        activeActivations(callId, activationId, secret).mapNotNull { activation ->
+            activations.route(activation.activationId)?.let { activation to it }
+        }
+
+    @Suppress("ReturnCount")
+    private suspend fun activeActivations(callId: String, activationId: String, secret: String): List<Activation> {
+        if (activationId.isEmpty()) return activations.findActiveByCall(callId)
+        if (!secrets.matches(callId, activationId, secret)) return emptyList()
+        val id = runCatching { UUID.fromString(activationId) }.getOrNull() ?: return emptyList()
+        val activation = activations.find(id) ?: return emptyList()
+        if (activation.request.callId != callId || activation.selection == null) return emptyList()
+        if (activation.state == ActivationState.ACTIVE) return listOf(activation)
+        if (activation.state != ActivationState.ACTIVATING || activations.route(id) == null) return emptyList()
+        return listOf(activation)
+    }
 
     private fun EventType.eventName(): String? = eventNames[this]
 
@@ -65,7 +96,7 @@ class RoutesServiceImpl(private val activations: ActivationStore, private val co
         EventType.EVENT_TYPE_PARTICIPANT_RECONNECTING,
         EventType.EVENT_TYPE_PARTICIPANT_RECONNECTED,
         EventType.EVENT_TYPE_PARTICIPANT_KICKED,
-        -> "participants"
+        -> "participant"
 
         EventType.EVENT_TYPE_MEDIA_AUDIO_MUTED,
         EventType.EVENT_TYPE_MEDIA_AUDIO_UNMUTED,
@@ -78,6 +109,10 @@ class RoutesServiceImpl(private val activations: ActivationStore, private val co
         -> "media"
 
         EventType.EVENT_TYPE_INTERACTION_CHAT_MESSAGE_RECEIVED -> "interaction"
+
+        EventType.EVENT_TYPE_CALL_STARTED,
+        EventType.EVENT_TYPE_CALL_ENDED,
+        -> "call"
 
         else -> null
     }
@@ -107,6 +142,8 @@ class RoutesServiceImpl(private val activations: ActivationStore, private val co
             EventType.EVENT_TYPE_MEDIA_TRACK_PUBLISHED to "media.track_published",
             EventType.EVENT_TYPE_MEDIA_TRACK_UNPUBLISHED to "media.track_unpublished",
             EventType.EVENT_TYPE_INTERACTION_CHAT_MESSAGE_RECEIVED to "interaction.chat_message_received",
+            EventType.EVENT_TYPE_CALL_STARTED to "call.started",
+            EventType.EVENT_TYPE_CALL_ENDED to "call.ended",
         )
     }
 }
