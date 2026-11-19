@@ -89,7 +89,11 @@ class DefaultConfigurationService(
         var selected = version
         while (selected == null) {
             val metadata = permits.withPermit { registry.plugins(id, page) }
-            selected = metadata.items.firstOrNull { it.id == pluginId }?.latestVersion
+            val plugin = metadata.items.firstOrNull { it.id == pluginId }
+            if (plugin != null) {
+                selected = plugin.latestVersion ?: permits.withPermit { registry.versions(id, pluginId) }.lastOrNull()
+                if (selected == null) throw PluginManagerException(ErrorCode.PLUGIN_NOT_FOUND, "Plugin has no versions")
+            }
             if (selected == null && page >= metadata.totalPages) {
                 throw PluginManagerException(ErrorCode.PLUGIN_NOT_FOUND, "Plugin not found")
             }

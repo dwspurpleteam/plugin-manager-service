@@ -35,17 +35,33 @@ class HttpPluginRegistry(private val config: PluginManagerConfig, private val ma
         val result = read<RegistryPage<RegistryPlugin>> { client(registryId).plugins(page, limit) }
             ?: throw PluginManagerException(ErrorCode.REGISTRY_INVALID_RESPONSE, "Registry listing is unavailable")
         val invalidPage = result.page != page || result.limit != limit || result.totalItems < 0 || result.totalPages < 0
-        val invalidItems =
-            result.items.size > limit || result.items.any { it.id.isBlank() || it.latestVersion.isBlank() }
+        val invalidItems = result.items.size > limit || result.items.any {
+            it.id.isBlank() || it.latestVersion?.isBlank() == true
+        }
         if (invalidPage || invalidItems) {
             throw PluginManagerException(ErrorCode.REGISTRY_INVALID_RESPONSE, "Invalid registry pagination")
         }
         return result
     }
 
-    override suspend fun versions(registryId: String, pluginId: String): List<String> =
-        read<List<String>> { client(registryId).versions(pluginId) }
-            ?: throw PluginManagerException(ErrorCode.PLUGIN_NOT_FOUND, "Plugin not found")
+    override suspend fun versions(registryId: String, pluginId: String): List<String> {
+        val versions = mutableListOf<String>()
+        var page = 1
+        val limit = 20
+        do {
+            val result = read<RegistryPage<RegistryVersion>> { client(registryId).versions(pluginId, page, limit) }
+                ?: throw PluginManagerException(ErrorCode.PLUGIN_NOT_FOUND, "Plugin not found")
+            val invalidPage = result.page != page || result.limit != limit || result.totalItems < 0 ||
+                result.totalPages < 0
+            val invalidItems = result.items.size > limit || result.items.any { it.version.isBlank() }
+            if (invalidPage || invalidItems) {
+                throw PluginManagerException(ErrorCode.REGISTRY_INVALID_RESPONSE, "Invalid registry pagination")
+            }
+            versions.addAll(result.items.map { it.version })
+            page++
+        } while (page <= result.totalPages)
+        return versions
+    }
 
     override suspend fun manifest(registryId: String, pluginId: String, version: String): JsonNode? =
         read<JsonNode> { client(registryId).manifest(pluginId, version) }
