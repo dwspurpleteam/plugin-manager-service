@@ -48,8 +48,10 @@ class HttpContractTest {
                 "/v1/plugins/plugin/versions" -> {
                     val page = if (exchange.requestURI.query.contains("page=2")) 2 else 1
                     val version = if (page == 1) "0.9.0" else "1.0.0"
-                    """{"items":[{"pluginId":"plugin","version":"$version"}],
-                       "page":$page,"limit":20,"totalItems":2,"totalPages":2}""".trimIndent()
+                    """
+                    {"items":[{"pluginId":"plugin","version":"$version"}],
+                    "page":$page,"limit":20,"totalItems":2,"totalPages":2}
+                    """.trimIndent()
                 }
 
                 "/v1/plugins/plugin/versions/1.0.0/manifest" -> mapper.writeValueAsString(
