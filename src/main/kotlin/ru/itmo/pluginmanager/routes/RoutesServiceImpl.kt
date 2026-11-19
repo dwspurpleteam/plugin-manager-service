@@ -3,6 +3,7 @@ package ru.itmo.pluginmanager.routes
 import jakarta.enterprise.context.ApplicationScoped
 import ru.itmo.pluginmanager.application.ConfigurationService
 import ru.itmo.pluginmanager.domain.Activation
+import ru.itmo.pluginmanager.domain.ActivationRoute
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.persistence.ActivationStore
 import ru.itmo.pluginmanager.routes.v1.CheckActionPermissionRequest
@@ -20,25 +21,24 @@ import ru.itmo.pluginmanager.routes.v1.MediaType as RouteMediaType
 @ApplicationScoped
 class RoutesServiceImpl(
     private val activations: ActivationStore,
-    private val configurations: ConfigurationService,
+    @Suppress("UnusedPrivateProperty") private val configurations: ConfigurationService,
     private val secrets: ActivationSecrets,
 ) : RoutesService {
     override suspend fun checkAction(request: CheckActionPermissionRequest): CheckActionPermissionResponse {
         val allowed = request.activationId.isNotBlank() && request.action.isNotBlank() &&
-            activeActivations(request.callId, request.activationId, request.activationSecret).any { activation ->
-                request.action in configurations.get(requireNotNull(activation.selection)).manifest.backend.actions
+            activeRoutes(request.callId, request.activationId, request.activationSecret).any { (_, route) ->
+                request.action in route.allowedActions
             }
         return CheckActionPermissionResponse.newBuilder().setAllowed(allowed).build()
     }
 
     override suspend fun getPermissionsForEvent(request: CheckEventPermissionRequest): CheckEventPermissionResponse {
-        val pluginIds = activeActivations(request.callId, request.activationId, request.activationSecret)
-            .filter { activation ->
-                val events = configurations.get(requireNotNull(activation.selection)).manifest.backend.events
-                events?.availableEventTypes?.let { request.eventType.eventName() in it }
-                    ?: (request.eventType.groupName() in events?.availableEventGroups.orEmpty())
+        val pluginIds = activeRoutes(request.callId, request.activationId, request.activationSecret)
+            .filter { (_, route) ->
+                route.allowedEventTypes?.let { request.eventType.eventName() in it }
+                    ?: (request.eventType.groupName() in route.allowedEventGroups.orEmpty())
             }
-            .map { it.request.pluginId }
+            .map { (activation) -> activation.request.pluginId }
             .distinct()
         return CheckEventPermissionResponse.newBuilder()
             .setEventType(request.eventType)
@@ -49,15 +49,12 @@ class RoutesServiceImpl(
 
     override suspend fun getPermissionsForMedia(request: CheckMediaPermissionRequest): CheckMediaPermissionResponse {
         val pluginIds = request.mediaType.manifestMediaType()?.let { requestedMediaType ->
-            activeActivations(request.callId, request.activationId, request.activationSecret)
-                .filter { activation ->
-                    val input = configurations.get(requireNotNull(activation.selection)).manifest.backend.media.input
-                    requestedMediaType in input
-                }
-                .map {
+            activeRoutes(request.callId, request.activationId, request.activationSecret)
+                .filter { (_, route) -> requestedMediaType in route.allowedMediaTypes }
+                .map { (activation) ->
                     PluginInfo.newBuilder()
-                        .setPluginId(it.request.pluginId)
-                        .setPluginVersion(requireNotNull(it.selection).pluginVersion)
+                        .setPluginId(activation.request.pluginId)
+                        .setPluginVersion(requireNotNull(activation.selection).pluginVersion)
                         .build()
                 }
                 .distinct()
@@ -68,6 +65,15 @@ class RoutesServiceImpl(
             .addAllPlugins(pluginIds)
             .build()
     }
+
+    private suspend fun activeRoutes(
+        callId: String,
+        activationId: String,
+        secret: String,
+    ): List<Pair<Activation, ActivationRoute>> =
+        activeActivations(callId, activationId, secret).mapNotNull { activation ->
+            activations.route(activation.activationId)?.let { activation to it }
+        }
 
     @Suppress("ReturnCount")
     private suspend fun activeActivations(callId: String, activationId: String, secret: String): List<Activation> {

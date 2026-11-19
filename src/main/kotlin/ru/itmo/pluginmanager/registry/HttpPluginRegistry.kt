@@ -2,6 +2,7 @@ package ru.itmo.pluginmanager.registry
 
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder
 import jakarta.annotation.PreDestroy
@@ -12,7 +13,6 @@ import org.jboss.resteasy.reactive.RestResponse
 import ru.itmo.pluginmanager.config.PluginManagerConfig
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginManagerException
-import ru.itmo.pluginmanager.domain.PluginManifest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -47,8 +47,8 @@ class HttpPluginRegistry(private val config: PluginManagerConfig, private val ma
         read<List<String>> { client(registryId).versions(pluginId) }
             ?: throw PluginManagerException(ErrorCode.PLUGIN_NOT_FOUND, "Plugin not found")
 
-    override suspend fun manifest(registryId: String, pluginId: String, version: String): PluginManifest? =
-        read<PluginManifest> { client(registryId).manifest(pluginId, version) }
+    override suspend fun manifest(registryId: String, pluginId: String, version: String): JsonNode? =
+        read<JsonNode> { client(registryId).manifest(pluginId, version) }
 
     private inline fun <reified T> read(request: () -> RestResponse<String>): T? = try {
         request().use { response ->

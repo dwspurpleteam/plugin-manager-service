@@ -176,6 +176,7 @@ components:
       - PLUGIN_NOT_FOUND
       - ACTIVATION_NOT_FOUND
       - IDEMPOTENCY_CONFLICT
+      - MANIFEST_VERSION_CONFLICT
       - ACTIVATION_NOT_READY
       - ACTIVATION_FAILED
       - ACTIVATION_NOT_ACTIVE
@@ -192,6 +193,65 @@ components:
       format: date-time
       examples:
       - 2022-03-10T16:15:50Z
+    JsonNode:
+      type: object
+      properties:
+        empty:
+          type: boolean
+        valueNode:
+          type: boolean
+        containerNode:
+          type: boolean
+        missingNode:
+          type: boolean
+        array:
+          type: boolean
+        object:
+          type: boolean
+        nodeType:
+          $ref: "#/components/schemas/JsonNodeType"
+        pojo:
+          type: boolean
+        number:
+          type: boolean
+        integralNumber:
+          type: boolean
+        floatingPointNumber:
+          type: boolean
+        short:
+          type: boolean
+        int:
+          type: boolean
+        long:
+          type: boolean
+        float:
+          type: boolean
+        double:
+          type: boolean
+        bigDecimal:
+          type: boolean
+        bigInteger:
+          type: boolean
+        textual:
+          type: boolean
+        boolean:
+          type: boolean
+        "null":
+          type: boolean
+        binary:
+          type: boolean
+    JsonNodeType:
+      type: string
+      enum:
+      - ARRAY
+      - BINARY
+      - BOOLEAN
+      - MISSING
+      - "NULL"
+      - NUMBER
+      - OBJECT
+      - POJO
+      - STRING
     MediaType:
       type: string
       enum:
@@ -232,8 +292,11 @@ components:
           uniqueItems: true
           items:
             type: string
-      required:
-      - media
+        initial-state:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
     PluginEvents:
       type: object
       properties:
@@ -282,9 +345,6 @@ components:
       - backend
     PluginMedia:
       type: object
-      required:
-      - input
-      - output
       properties:
         input:
           type: array
@@ -430,6 +490,25 @@ paths:
       summary: Signal Route
       tags:
       - Activation Resource
+  /v1/manifest-versions:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JsonNode"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: {}
+        "400":
+          description: Bad Request
+      summary: Register
+      tags:
+      - Manifest Version Resource
   /v1/plugins/{pluginId}/configuration:
     get:
       parameters:

@@ -1,5 +1,8 @@
 package ru.itmo.pluginmanager.application
 
+import com.fasterxml.jackson.core.JsonProcessingException
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.enterprise.context.ApplicationScoped
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -12,6 +15,7 @@ import ru.itmo.pluginmanager.config.PluginManagerConfig
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginConfiguration
 import ru.itmo.pluginmanager.domain.PluginManagerException
+import ru.itmo.pluginmanager.domain.PluginManifest
 import ru.itmo.pluginmanager.domain.PluginSelection
 import ru.itmo.pluginmanager.domain.validateIdentifier
 import ru.itmo.pluginmanager.domain.validateManifest
@@ -19,8 +23,12 @@ import ru.itmo.pluginmanager.registry.PluginRegistry
 import kotlin.time.Duration.Companion.milliseconds
 
 @ApplicationScoped
-class DefaultConfigurationService(private val config: PluginManagerConfig, private val registry: PluginRegistry) :
-    ConfigurationService {
+class DefaultConfigurationService(
+    private val config: PluginManagerConfig,
+    private val registry: PluginRegistry,
+    private val schemas: ManifestSchemaService,
+    private val mapper: ObjectMapper,
+) : ConfigurationService {
     private val permits = Semaphore(config.http().concurrency())
 
     override suspend fun resolve(pluginId: String, pluginVersion: String?, registryId: String?): PluginSelection {
@@ -96,11 +104,19 @@ class DefaultConfigurationService(private val config: PluginManagerConfig, priva
         if (selection.registryId !in config.registries()) {
             throw PluginManagerException(ErrorCode.UNKNOWN_REGISTRY, "Unknown registry")
         }
-        val manifest = permits.withPermit {
+        val manifestJson = permits.withPermit {
             registry.manifest(selection.registryId, selection.pluginId, selection.pluginVersion)
         }
             ?: throw PluginManagerException(ErrorCode.PLUGIN_NOT_FOUND, "Plugin not found")
+        schemas.validate(manifestJson)
+        val manifest = deserializeManifest(manifestJson)
         validateManifest(selection, manifest)
         return PluginConfiguration(selection, manifest)
+    }
+
+    private fun deserializeManifest(manifest: JsonNode): PluginManifest = try {
+        mapper.treeToValue(manifest, PluginManifest::class.java)
+    } catch (exception: JsonProcessingException) {
+        throw PluginManagerException(ErrorCode.INVALID_MANIFEST, "Invalid manifest JSON", exception)
     }
 }
