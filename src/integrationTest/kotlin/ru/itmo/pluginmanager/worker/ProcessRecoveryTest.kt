@@ -105,6 +105,14 @@ class ProcessRecoveryTest {
         var process = start(postgres, redis, server.address.port, port, false)
         try {
             await { get("$base/v1/activations/00000000-0000-0000-0000-000000000000").statusCode() == 404 }
+            val schema = HttpRequest.newBuilder(URI("$base/v1/manifest-versions"))
+                .header("Content-Type", "application/json")
+                .POST(
+                    HttpRequest.BodyPublishers.ofString(
+                        """{"type":"object","properties":{"manifest-version":{"const":"0.1"}},"required":["manifest-version"]}""",
+                    ),
+                ).build()
+            assertEquals(201, http.send(schema, HttpResponse.BodyHandlers.ofString()).statusCode())
             val request = HttpRequest.newBuilder(URI("$base/v1/activations"))
                 .header("Content-Type", "application/json")
                 .POST(
