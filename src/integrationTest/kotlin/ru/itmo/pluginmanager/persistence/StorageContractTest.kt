@@ -1,5 +1,6 @@
 package ru.itmo.pluginmanager.persistence
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.quarkus.test.common.QuarkusTestResource
 import io.quarkus.test.junit.QuarkusTest
 import jakarta.inject.Inject
@@ -20,12 +21,15 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import ru.itmo.pluginmanager.database.JooqTransaction
 import ru.itmo.pluginmanager.database.PostgresTestResource
+import ru.itmo.pluginmanager.domain.ActivationContext
+import ru.itmo.pluginmanager.domain.ActivationContextSnapshot
 import ru.itmo.pluginmanager.domain.ActivationRequest
 import ru.itmo.pluginmanager.domain.ActivationRoute
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
+import ru.itmo.pluginmanager.domain.SnapshotConsistency
 import ru.itmo.pluginmanager.worker.WorkKind
 import java.time.Duration
 import java.time.Instant
@@ -37,7 +41,10 @@ class StorageContractTest {
     @Inject
     lateinit var transaction: JooqTransaction
 
-    private fun storage(): ActivationStore = JooqActivationStore(transaction)
+    @Inject
+    lateinit var mapper: ObjectMapper
+
+    private fun storage(): ActivationStore = JooqActivationStore(transaction, mapper)
 
     private fun work(): WorkStore = JooqWorkStore(transaction)
 
@@ -91,6 +98,30 @@ class StorageContractTest {
         }
         assertEquals(2L, counts.get(0))
         assertEquals(2L, counts.get(1))
+    }
+
+    /**
+     * Тест проверяет сохранение контекста и идемпотентный повтор без его подмены.
+     * Ожидаемый результат: равный запрос возвращает прежнюю активацию, а изменённый контекст даёт конфликт.
+     */
+    @Test
+    fun `initial context is durable and participates in idempotency`() = runBlocking {
+        reset()
+        val context = ActivationContext(
+            callId = "call",
+            participants = emptyList(),
+            snapshot = ActivationContextSnapshot(Instant.EPOCH, "call-backend", SnapshotConsistency.POINT_IN_TIME),
+        )
+        val input = ActivationRequest("call", "plugin", "user", "key", initialContext = context)
+        val store = storage()
+
+        val first = store.register(input)
+        assertEquals(context, store.find(first.activationId)!!.request.initialContext)
+        assertEquals(first.activationId, store.register(input).activationId)
+        val conflict = assertThrows(PluginManagerException::class.java) {
+            runBlocking { store.register(input.copy(initialContext = context.copy(roomName = "other"))) }
+        }
+        assertEquals(ErrorCode.IDEMPOTENCY_CONFLICT, conflict.code)
     }
 
     /**

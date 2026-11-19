@@ -20,13 +20,13 @@ data class PluginFrontend(
 data class PluginBackend(
     @get:JsonProperty("sdk-version") @param:JsonProperty("sdk-version") val sdkVersion: String,
     @get:JsonProperty("health-url") @param:JsonProperty("health-url") val healthUrl: String,
-    val events: PluginEvents,
+    @get:JsonProperty("control-url") @param:JsonProperty("control-url") val controlUrl: String,
     val media: PluginMedia,
+    val events: PluginEvents? = null,
     val actions: Set<String> = emptySet(),
 )
 
 data class PluginEvents(
-    @get:JsonProperty("event-url") @param:JsonProperty("event-url") val eventUrl: String,
     @get:JsonProperty("available-event-types")
     @param:JsonProperty("available-event-types")
     val availableEventTypes: Set<String>? = null,

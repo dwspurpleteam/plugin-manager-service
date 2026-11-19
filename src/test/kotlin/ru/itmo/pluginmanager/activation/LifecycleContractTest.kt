@@ -9,13 +9,21 @@ import org.junit.jupiter.api.Test
 import ru.itmo.pluginmanager.application.ActivationService
 import ru.itmo.pluginmanager.application.ActivationServiceImpl
 import ru.itmo.pluginmanager.application.ConfigurationService
+import ru.itmo.pluginmanager.domain.ActivationContext
+import ru.itmo.pluginmanager.domain.ActivationContextSnapshot
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
+import ru.itmo.pluginmanager.domain.PluginActivationMessage
 import ru.itmo.pluginmanager.domain.PluginConfiguration
 import ru.itmo.pluginmanager.domain.PluginEvents
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
+import ru.itmo.pluginmanager.domain.SnapshotConsistency
 import ru.itmo.pluginmanager.health.PluginHealthcheck
+import ru.itmo.pluginmanager.routes.ActivationSecrets
+import ru.itmo.pluginmanager.routes.RoutesServiceImpl
+import ru.itmo.pluginmanager.routes.v1.CheckEventPermissionRequest
+import ru.itmo.pluginmanager.routes.v1.EventType
 import ru.itmo.pluginmanager.support.MemoryStores
 import ru.itmo.pluginmanager.support.manifest
 import ru.itmo.pluginmanager.support.policy
@@ -24,6 +32,8 @@ import ru.itmo.pluginmanager.worker.WorkerProcessor
 import ru.itmo.pluginmanager.worker.activation.DefaultActivationProcessor
 import ru.itmo.pluginmanager.worker.health.DefaultHealthcheckProcessor
 import java.time.Clock
+import java.time.Instant
+import java.util.UUID
 
 class LifecycleContractTest {
     private val store = MemoryStores()
@@ -32,6 +42,24 @@ class LifecycleContractTest {
     private var configuredManifest = manifest()
     private val health = object : PluginHealthcheck {
         override suspend fun check(url: String) = healthy
+    }
+    private var sentMessage: PluginActivationMessage? = null
+    private var sentEndpoint: String? = null
+    private var allowedDuringNotification = false
+    private val secrets = ActivationSecrets("0123456789abcdef0123456789abcdef")
+    private val notifier = object : PluginActivationNotifier {
+        override suspend fun notify(endpoint: String, message: PluginActivationMessage) {
+            sentEndpoint = endpoint
+            sentMessage = message
+            val request = CheckEventPermissionRequest.newBuilder()
+                .setCallId(message.callId)
+                .setActivationId(message.activationId.toString())
+                .setActivationSecret(message.activationSecret)
+                .setEventType(EventType.EVENT_TYPE_PARTICIPANT_JOINED)
+                .build()
+            allowedDuringNotification = RoutesServiceImpl(store, configurations, secrets)
+                .getPermissionsForEvent(request).canSend
+        }
     }
     private val configurations = object : ConfigurationService {
         override suspend fun resolve(pluginId: String, pluginVersion: String?, registryId: String?): PluginSelection {
@@ -46,6 +74,8 @@ class LifecycleContractTest {
         store,
         configurations,
         health,
+        notifier,
+        secrets,
         policy(),
         Clock.systemUTC(),
     )
@@ -64,7 +94,7 @@ class LifecycleContractTest {
         healthy = true
         processor().process(store.lease.copy(attemptCount = 2))
         assertEquals(ActivationState.ACTIVE, store.activation.state)
-        assertEquals(manifest().backend.events.availableEventTypes, store.savedRoute!!.allowedEventTypes)
+        assertEquals(manifest().backend.events!!.availableEventTypes, store.savedRoute!!.allowedEventTypes)
         assertEquals(null, store.savedRoute!!.allowedEventGroups)
         assertEquals(WorkKind.ACTIVATE, processor().kind)
         assertEquals(1, resolutions)
@@ -79,7 +109,6 @@ class LifecycleContractTest {
         configuredManifest = manifest().copy(
             backend = manifest().backend.copy(
                 events = PluginEvents(
-                    eventUrl = manifest().backend.events.eventUrl,
                     availableEventGroups = setOf("participants", "recording"),
                 ),
             ),
@@ -89,6 +118,53 @@ class LifecycleContractTest {
 
         assertEquals(null, store.savedRoute!!.allowedEventTypes)
         assertEquals(setOf("participants", "recording"), store.savedRoute!!.allowedEventGroups)
+    }
+
+    /**
+     * Тест проверяет передачу сохранённого доверенного контекста в сообщение Plugin Backend.
+     * Ожидаемый результат: сообщение содержит идентификаторы выбранного плагина, звонка и исходный снимок.
+     */
+    @Test
+    fun `activation sends persisted initial context to plugin backend`() = runBlocking {
+        val context = ActivationContext(
+            callId = "call",
+            roomName = "Team meeting",
+            participantCount = 1,
+            participants = emptyList(),
+            snapshot = ActivationContextSnapshot(Instant.EPOCH, "call-backend", SnapshotConsistency.POINT_IN_TIME),
+        )
+        store.activation = store.activation.copy(request = store.activation.request.copy(initialContext = context))
+
+        processor().process(store.lease)
+
+        assertEquals(context, sentMessage!!.initialContext)
+        assertEquals(store.activation.activationId, sentMessage!!.activationId)
+        assertEquals("plugin", sentMessage!!.pluginId)
+        assertEquals("1.0.0", sentMessage!!.pluginVersion)
+        assertEquals("registry", sentMessage!!.registryId)
+        assertEquals("call", sentMessage!!.callId)
+        assertTrue(secrets.matches("call", store.activation.activationId.toString(), sentMessage!!.activationSecret))
+        assertEquals("1.0", sentMessage!!.schemaVersion)
+        assertEquals(manifest().backend.controlUrl, sentEndpoint)
+        assertTrue(allowedDuringNotification)
+    }
+
+    @Test
+    fun `rejects insecure delivery of activation secret`() = runBlocking {
+        processor().process(store.lease)
+        val sender = HttpPluginActivationNotifier(policy(), false)
+        val failure = assertThrows(PluginManagerException::class.java) {
+            runBlocking { sender.notify("http://example.org/activation", requireNotNull(sentMessage)) }
+        }
+        assertEquals(ErrorCode.INVALID_MANIFEST, failure.code)
+    }
+
+    @Test
+    fun `reports a missing activation secret key`() {
+        val failure = assertThrows(PluginManagerException::class.java) {
+            ActivationSecrets("disabled").issue("call", UUID.randomUUID().toString())
+        }
+        assertEquals(ErrorCode.INTERNAL_ERROR, failure.code)
     }
 
     /**

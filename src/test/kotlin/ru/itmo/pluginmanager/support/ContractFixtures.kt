@@ -31,7 +31,8 @@ fun manifest(version: String = "1.0.0", health: String = "http://localhost/healt
     PluginBackend(
         "1.0.0",
         health,
-        PluginEvents("https://example.com/signals", setOf("participant.joined")),
+        "https://example.com/control",
         PluginMedia(setOf(MediaType.AUDIO, MediaType.SCREEN_SHARE_AUDIO), setOf(MediaType.VIDEO)),
+        PluginEvents(setOf("participant.joined")),
     ),
 )

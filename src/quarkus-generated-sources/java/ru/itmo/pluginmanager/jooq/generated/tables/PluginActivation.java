@@ -16,6 +16,7 @@ import org.jooq.Field;
 import org.jooq.ForeignKey;
 import org.jooq.Index;
 import org.jooq.InverseForeignKey;
+import org.jooq.JSONB;
 import org.jooq.Name;
 import org.jooq.Path;
 import org.jooq.PlainSQL;
@@ -134,6 +135,8 @@ public class PluginActivation extends TableImpl<PluginActivationRecord> {
      * The column <code>public.plugin_activation.failure_code</code>.
      */
     public final TableField<PluginActivationRecord, String> FAILURE_CODE = createField(DSL.name("failure_code"), SQLDataType.VARCHAR(64), this, "");
+
+    public final TableField<PluginActivationRecord, JSONB> INITIAL_CONTEXT = createField(DSL.name("initial_context"), SQLDataType.JSONB, this, "");
 
     private PluginActivation(Name alias, Table<PluginActivationRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);

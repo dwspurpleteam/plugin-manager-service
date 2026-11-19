@@ -1,10 +1,12 @@
 package ru.itmo.pluginmanager.persistence
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 import org.jboss.logging.Logger
 import org.jooq.DSLContext
 import ru.itmo.pluginmanager.domain.Activation
+import ru.itmo.pluginmanager.domain.ActivationContext
 import ru.itmo.pluginmanager.domain.ActivationRequest
 import ru.itmo.pluginmanager.domain.ActivationRoute
 import ru.itmo.pluginmanager.domain.ActivationState
@@ -74,9 +76,17 @@ internal suspend fun DSLContext.changeState(
     }
 }
 
-internal fun PluginActivationRecord.toDomain(): Activation = Activation(
+internal fun PluginActivationRecord.toDomain(mapper: ObjectMapper): Activation = Activation(
     activationId,
-    ActivationRequest(callId, pluginId, requestedBy, idempotencyKey, requestedVersion, requestedRegistryId),
+    ActivationRequest(
+        callId,
+        pluginId,
+        requestedBy,
+        idempotencyKey,
+        requestedVersion,
+        requestedRegistryId,
+        initialContext?.data()?.let { mapper.readValue(it, ActivationContext::class.java) },
+    ),
     resolvedVersion?.let { PluginSelection(pluginId, it, resolvedRegistryId) },
     ActivationState.valueOf(state.name),
     stateRevision,

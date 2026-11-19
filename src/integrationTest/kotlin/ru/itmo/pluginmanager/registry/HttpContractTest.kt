@@ -41,7 +41,9 @@ class HttpContractTest {
 
                 "/v1/plugins/plugin/versions" -> """["1.0.0","0.9.0"]"""
 
-                "/v1/plugins/plugin/versions/1.0.0/manifest" -> mapper.writeValueAsString(manifest())
+                "/v1/plugins/plugin/versions/1.0.0/manifest" -> mapper.writeValueAsString(
+                    manifest().let { it.copy(backend = it.backend.copy(events = null)) },
+                )
 
                 else -> null
             }
@@ -57,7 +59,10 @@ class HttpContractTest {
             val registry: PluginRegistry = HttpPluginRegistry(config, mapper)
             assertEquals("1.0.0", registry.plugins("test").items.single().latestVersion)
             assertEquals(listOf("1.0.0", "0.9.0"), registry.versions("test", "plugin"))
-            assertEquals(manifest(), registry.manifest("test", "plugin", "1.0.0"))
+            assertEquals(
+                manifest().let { it.copy(backend = it.backend.copy(events = null)) },
+                registry.manifest("test", "plugin", "1.0.0"),
+            )
             assertNull(registry.manifest("test", "plugin", "missing"))
             assertThrows(PluginManagerException::class.java) { runBlocking { registry.plugins("unknown") } }
             Unit

@@ -25,6 +25,6 @@ internal fun validateManifest(selection: PluginSelection, manifest: PluginManife
     ) {
         throw PluginManagerException(ErrorCode.INVALID_MANIFEST, "Manifest identity or format mismatch")
     }
-    validateHttpUrl(manifest.backend.events.eventUrl)
+    validateHttpUrl(manifest.backend.controlUrl)
     validateHttpUrl(manifest.backend.healthUrl)
 }

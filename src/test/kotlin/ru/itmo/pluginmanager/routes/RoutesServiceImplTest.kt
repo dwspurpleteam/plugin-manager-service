@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import ru.itmo.pluginmanager.application.ConfigurationService
+import ru.itmo.pluginmanager.domain.ActivationRoute
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.PluginConfiguration
 import ru.itmo.pluginmanager.domain.PluginSelection
@@ -16,6 +17,7 @@ import ru.itmo.pluginmanager.routes.v1.EventType
 import ru.itmo.pluginmanager.routes.v1.MediaType
 import ru.itmo.pluginmanager.support.MemoryStores
 import ru.itmo.pluginmanager.support.manifest
+import java.util.UUID
 
 class RoutesServiceImplTest {
     private val store = MemoryStores()
@@ -28,10 +30,30 @@ class RoutesServiceImplTest {
     private val service = RoutesServiceImpl(store, configuration, secrets)
 
     @Test
+    fun `permits an activating plugin after its route is prepared`() = runBlocking {
+        store.activation = store.activation.copy(state = ActivationState.ACTIVATING, selection = selection)
+        val activationId = store.activation.activationId.toString()
+        val event = CheckEventPermissionRequest.newBuilder().setCallId("call")
+            .setEventType(EventType.EVENT_TYPE_PARTICIPANT_JOINED).setActivationId(activationId)
+            .setActivationSecret(secrets.issue("call", activationId)).build()
+        assertFalse(service.getPermissionsForEvent(event).canSend)
+        store.savedRoute = ActivationRoute(
+            UUID.randomUUID(),
+            store.activation.activationId,
+            "https://example.org",
+            null,
+            null,
+            "https://example.org",
+        )
+        assertTrue(service.getPermissionsForEvent(event).canSend)
+        assertFalse(service.getPermissionsForEvent(event.toBuilder().setActivationSecret("wrong").build()).canSend)
+    }
+
+    @Test
     fun `explicit event types take precedence over event groups`() = runBlocking {
         store.activation = store.activation.copy(state = ActivationState.ACTIVE, selection = selection)
         val base = manifest()
-        val events = base.backend.events.copy(
+        val events = base.backend.events!!.copy(
             availableEventTypes = setOf("participant.left"),
             availableEventGroups = setOf("participant"),
         )
@@ -56,7 +78,7 @@ class RoutesServiceImplTest {
                 selection,
                 base.copy(
                     backend = base.backend.copy(
-                        events = base.backend.events.copy(
+                        events = base.backend.events!!.copy(
                             availableEventTypes = null,
                             availableEventGroups = setOf("participant"),
                         ),
