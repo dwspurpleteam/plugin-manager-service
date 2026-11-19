@@ -11,6 +11,7 @@ import ru.itmo.pluginmanager.application.ActivationServiceImpl
 import ru.itmo.pluginmanager.application.ConfigurationService
 import ru.itmo.pluginmanager.domain.ActivationContext
 import ru.itmo.pluginmanager.domain.ActivationContextSnapshot
+import ru.itmo.pluginmanager.domain.ActivationParticipant
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginActivationMessage
@@ -122,7 +123,7 @@ class LifecycleContractTest {
 
     /**
      * Тест проверяет передачу сохранённого доверенного контекста в сообщение Plugin Backend.
-     * Ожидаемый результат: сообщение содержит идентификаторы выбранного плагина, звонка и исходный снимок.
+     * Ожидаемый результат: при запросе participants сообщение содержит исходный снимок вместе с участниками.
      */
     @Test
     fun `activation sends persisted initial context to plugin backend`() = runBlocking {
@@ -130,8 +131,11 @@ class LifecycleContractTest {
             callId = "call",
             roomName = "Team meeting",
             participantCount = 1,
-            participants = emptyList(),
+            participants = listOf(ActivationParticipant("participant-1", participantName = "Alice")),
             snapshot = ActivationContextSnapshot(Instant.EPOCH, "call-backend", SnapshotConsistency.POINT_IN_TIME),
+        )
+        configuredManifest = manifest().copy(
+            backend = manifest().backend.copy(initialState = setOf("participants")),
         )
         store.activation = store.activation.copy(request = store.activation.request.copy(initialContext = context))
 
@@ -147,6 +151,26 @@ class LifecycleContractTest {
         assertEquals("1.0", sentMessage!!.schemaVersion)
         assertEquals(manifest().backend.controlUrl, sentEndpoint)
         assertTrue(allowedDuringNotification)
+    }
+
+    /**
+     * Тест проверяет исключение участников из сообщения без разрешения backend.initial-state.
+     * Ожидаемый результат: отправляется копия без participants, а сохранённый исходный снимок не изменяется.
+     */
+    @Test
+    fun `activation omits participants without initial state permission`() = runBlocking {
+        val participant = ActivationParticipant("participant-1", participantName = "Alice")
+        val context = ActivationContext(
+            callId = "call",
+            participants = listOf(participant),
+            snapshot = ActivationContextSnapshot(Instant.EPOCH, "call-backend", SnapshotConsistency.POINT_IN_TIME),
+        )
+        store.activation = store.activation.copy(request = store.activation.request.copy(initialContext = context))
+
+        processor().process(store.lease)
+
+        assertEquals(emptyList<ActivationParticipant>(), sentMessage!!.initialContext!!.participants)
+        assertEquals(listOf(participant), store.activation.request.initialContext!!.participants)
     }
 
     @Test

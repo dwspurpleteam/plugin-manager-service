@@ -18,7 +18,7 @@ import java.util.UUID
 class ActivationServiceImpl(
     private val store: ActivationStore,
     private val config: PluginManagerConfig,
-    private val configurations: ConfigurationService,
+    @Suppress("UnusedPrivateProperty") private val configurations: ConfigurationService,
 ) : ActivationService {
     override suspend fun register(request: ActivationRequest): RegistrationResult {
         listOfNotNull(
@@ -52,11 +52,7 @@ class ActivationServiceImpl(
         return route ?: throw PluginManagerException(ErrorCode.INTERNAL_ERROR, "Active route is missing")
     }
 
-    override suspend fun mediaTypes(activationId: UUID): Set<MediaType> {
-        val activation = get(activationId)
-        requireActive(activation)
-        return configurations.get(requireNotNull(activation.selection)).manifest.backend.media.input
-    }
+    override suspend fun mediaTypes(activationId: UUID): Set<MediaType> = signalRoute(activationId).allowedMediaTypes
 
     private fun requireActive(activation: Activation) {
         val code = when (activation.state) {

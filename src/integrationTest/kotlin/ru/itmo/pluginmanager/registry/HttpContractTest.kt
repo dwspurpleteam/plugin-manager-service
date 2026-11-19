@@ -60,7 +60,9 @@ class HttpContractTest {
             assertEquals("1.0.0", registry.plugins("test").items.single().latestVersion)
             assertEquals(listOf("1.0.0", "0.9.0"), registry.versions("test", "plugin"))
             assertEquals(
-                manifest().let { it.copy(backend = it.backend.copy(events = null)) },
+                mapper.valueToTree<com.fasterxml.jackson.databind.JsonNode>(
+                    manifest().let { it.copy(backend = it.backend.copy(events = null)) },
+                ),
                 registry.manifest("test", "plugin", "1.0.0"),
             )
             assertNull(registry.manifest("test", "plugin", "missing"))

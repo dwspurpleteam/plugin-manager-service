@@ -13,6 +13,29 @@ import java.util.UUID
 @QuarkusTestResource(PostgresTestResource::class)
 class ApiContractTest {
     /**
+     * Тест проверяет административную регистрацию неизменяемой версии JSON Schema.
+     * Ожидаемый результат: создание даёт 201, идентичный повтор 200, другая схема той же версии 409.
+     */
+    @Test
+    fun `manifest schema registration is immutable and idempotent`() {
+        val version = "test-${UUID.randomUUID()}"
+        val schema = mapOf(
+            "${'$'}schema" to "https://json-schema.org/draft/2020-12/schema",
+            "type" to "object",
+            "properties" to mapOf("manifest-version" to mapOf("const" to version)),
+            "required" to listOf("manifest-version"),
+        )
+        given().contentType("application/json").body(schema).post("/v1/manifest-versions")
+            .then().statusCode(201)
+        given().contentType("application/json").body(schema).post("/v1/manifest-versions")
+            .then().statusCode(200)
+        given().contentType("application/json").body(schema + ("description" to "changed"))
+            .post("/v1/manifest-versions").then().statusCode(409)
+        given().contentType("application/json").body(mapOf("type" to "object"))
+            .post("/v1/manifest-versions").then().statusCode(400)
+    }
+
+    /**
      * Тест проверяет асинхронную регистрацию, повтор, конфликт и чтение неготового маршрута через REST.
      * Ожидаемый результат: 202, прежний ID с 200, конфликт 409 и NOT_READY до активации.
      */
