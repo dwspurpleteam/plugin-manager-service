@@ -1,8 +1,17 @@
 package ru.itmo.pluginmanager.registry
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.databind.JsonNode
 
-data class RegistryPlugin(val id: String, val name: String, val description: String, val latestVersion: String)
+data class RegistryPlugin(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+    val latestVersion: String? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class RegistryVersion(val version: String)
 
 data class RegistryPage<T>(
     val items: List<T>,
