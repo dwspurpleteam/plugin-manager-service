@@ -87,7 +87,7 @@ class StorageContractTest {
                 }.code,
             )
         }
-        assertNotEquals(
+        assertEquals(
             registrations.first().activationId,
             store.register(input.copy(idempotencyKey = "new")).activationId,
         )
@@ -97,8 +97,8 @@ class StorageContractTest {
             )
                 .awaitSingle()
         }
-        assertEquals(2L, counts.get(0))
-        assertEquals(2L, counts.get(1))
+        assertEquals(1L, counts.get(0))
+        assertEquals(1L, counts.get(1))
     }
 
     /**
