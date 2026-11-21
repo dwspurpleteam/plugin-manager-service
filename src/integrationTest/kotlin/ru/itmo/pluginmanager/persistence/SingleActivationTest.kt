@@ -76,5 +76,4 @@ class SingleActivationTest {
         }
         assertNotEquals(retry.activationId, store.register(input.copy(idempotencyKey = "restart")).activationId)
     }
-
 }
