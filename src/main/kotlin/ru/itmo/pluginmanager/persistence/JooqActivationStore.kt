@@ -18,6 +18,7 @@ import ru.itmo.pluginmanager.jooq.generated.Tables.ACTIVATION_ROUTE
 import ru.itmo.pluginmanager.jooq.generated.Tables.ACTIVATION_STATE_HISTORY
 import ru.itmo.pluginmanager.jooq.generated.Tables.ACTIVATION_WORK
 import ru.itmo.pluginmanager.jooq.generated.Tables.PLUGIN_ACTIVATION
+import ru.itmo.pluginmanager.worker.WorkKind
 import ru.itmo.pluginmanager.worker.WorkLease
 import java.time.Instant
 import java.time.ZoneOffset
@@ -56,10 +57,63 @@ class JooqActivationStore(private val tx: JooqTransaction, private val mapper: O
                 .set(ACTIVATION_STATE_HISTORY.ACTIVATION_ID, id)
                 .set(ACTIVATION_STATE_HISTORY.REVISION, 1L)
                 .set(ACTIVATION_STATE_HISTORY.TO_STATE, DatabaseActivationState.ACTIVATING).awaitSingle()
-            dsl.insertInto(ACTIVATION_WORK)
-                .set(ACTIVATION_WORK.ACTIVATION_ID, id)
-                .set(ACTIVATION_WORK.KIND, DatabaseActivationWorkKind.ACTIVATE).awaitSingle()
+            dsl.query(
+                "INSERT INTO activation_work (activation_id, kind, requested_by) VALUES (?, 'ACTIVATE', ?)",
+                id,
+                request.requestedBy,
+            ).awaitSingle()
             RegistrationResult(id, true)
+        }
+    }
+
+    override suspend fun beginDeactivation(activationId: UUID, requestedBy: String) = tx.transaction { dsl ->
+        // Workers lock the work row before locking the activation.
+        val work = dsl.select(ACTIVATION_WORK.LEASE_UNTIL, ACTIVATION_WORK.KIND.cast(String::class.java))
+            .from(ACTIVATION_WORK).where(ACTIVATION_WORK.ACTIVATION_ID.eq(activationId))
+            .forUpdate().awaitFirstOrNull()
+        val record = dsl.selectFrom(PLUGIN_ACTIVATION).where(PLUGIN_ACTIVATION.ACTIVATION_ID.eq(activationId))
+            .forUpdate().awaitFirstOrNull() ?: storageError(ErrorCode.ACTIVATION_NOT_FOUND)
+        if (record.state == DatabaseActivationState.STOPPED) {
+            return@transaction record.toDomain(mapper)
+        }
+        if (record.state == DatabaseActivationState.STOPPING &&
+            dsl.selectOne().from(ACTIVATION_WORK).where(ACTIVATION_WORK.ACTIVATION_ID.eq(activationId))
+                .awaitFirstOrNull() != null
+        ) {
+            return@transaction record.toDomain(mapper)
+        }
+
+        if (record.state != DatabaseActivationState.STOPPING) {
+            dsl.changeState(record, ActivationState.STOPPING, null)
+        }
+        // A claimed activation may still be delivering its control message.
+        val activationLeaseUntil = work?.takeIf { it.value2() == "ACTIVATE" }?.value1()
+        dsl.query(
+            """
+                INSERT INTO activation_work (activation_id, kind, requested_by, next_run_at)
+                VALUES (?, 'DEACTIVATE', ?, COALESCE(?::timestamptz, clock_timestamp()))
+                ON CONFLICT (activation_id) DO UPDATE
+                SET kind = EXCLUDED.kind, requested_by = EXCLUDED.requested_by,
+                    next_run_at = EXCLUDED.next_run_at, attempt_count = 0, consecutive_health_failures = 0,
+                    lease_token = NULL, lease_until = NULL, last_error_code = NULL
+            """.trimIndent(),
+            activationId,
+            requestedBy,
+            activationLeaseUntil,
+        ).awaitSingle()
+        dsl.selectFrom(PLUGIN_ACTIVATION)
+            .where(PLUGIN_ACTIVATION.ACTIVATION_ID.eq(activationId)).awaitSingle().toDomain(mapper)
+    }
+
+    override suspend fun completeDeactivation(lease: WorkLease) {
+        check(lease.kind == WorkKind.DEACTIVATE)
+        tx.transaction { dsl ->
+            val record = dsl.lockActivation(lease)
+            dsl.changeState(record, ActivationState.STOPPED, null)
+            dsl.deleteFrom(ACTIVATION_ROUTE)
+                .where(ACTIVATION_ROUTE.ACTIVATION_ID.eq(lease.activationId)).awaitSingle()
+            dsl.deleteFrom(ACTIVATION_WORK)
+                .where(ACTIVATION_WORK.ACTIVATION_ID.eq(lease.activationId)).awaitSingle()
         }
     }
 

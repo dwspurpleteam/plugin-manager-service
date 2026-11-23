@@ -41,6 +41,11 @@ class ActivationServiceImpl(
         return store.register(request)
     }
 
+    override suspend fun deactivate(activationId: UUID, requestedBy: String): Activation {
+        validateIdentifier(requestedBy)
+        return store.beginDeactivation(activationId, requestedBy)
+    }
+
     override suspend fun get(activationId: UUID): Activation = store.find(activationId)
         ?: throw PluginManagerException(ErrorCode.ACTIVATION_NOT_FOUND, "Activation not found")
 

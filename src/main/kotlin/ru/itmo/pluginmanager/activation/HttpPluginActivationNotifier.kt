@@ -3,10 +3,12 @@ package ru.itmo.pluginmanager.activation
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.ProcessingException
+import jakarta.ws.rs.core.Response
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import ru.itmo.pluginmanager.config.PluginManagerConfig
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginActivationMessage
+import ru.itmo.pluginmanager.domain.PluginDeactivationMessage
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.validateHttpUrl
 import java.net.URI
@@ -18,7 +20,17 @@ class HttpPluginActivationNotifier(
     @ConfigProperty(name = "plugin-manager.allow-insecure-activation-delivery", defaultValue = "false")
     private val allowInsecureDelivery: Boolean,
 ) : PluginActivationNotifier {
-    override suspend fun notify(endpoint: String, message: PluginActivationMessage) {
+    override suspend fun notify(endpoint: String, message: PluginActivationMessage) =
+        deliver(endpoint, ErrorCode.REGISTRY_UNAVAILABLE) { it.activate(message) }
+
+    override suspend fun deactivate(endpoint: String, message: PluginDeactivationMessage) =
+        deliver(endpoint, ErrorCode.PLUGIN_DEACTIVATION_UNAVAILABLE) { it.deactivate(message) }
+
+    private suspend fun deliver(
+        endpoint: String,
+        errorCode: ErrorCode,
+        send: suspend (ActivationHttpEndpoint) -> Response,
+    ) {
         validateHttpUrl(endpoint)
         validateTransport(endpoint)
         try {
@@ -28,19 +40,19 @@ class HttpPluginActivationNotifier(
                 .followRedirects(false)
                 .property("microprofile.rest.client.disable.default.mapper", true)
                 .build(ActivationHttpEndpoint::class.java).use { client ->
-                    client.activate(message).use { response ->
+                    send(client).use { response ->
                         if (response.status !in SUCCESSFUL_STATUS_RANGE) {
                             throw PluginManagerException(
-                                ErrorCode.REGISTRY_UNAVAILABLE,
-                                "Plugin activation message rejected",
+                                errorCode,
+                                "Plugin control message rejected",
                             )
                         }
                     }
                 }
         } catch (exception: ProcessingException) {
             throw PluginManagerException(
-                ErrorCode.REGISTRY_UNAVAILABLE,
-                "Plugin activation message delivery failed",
+                errorCode,
+                "Plugin control message delivery failed",
             ).also { it.addSuppressed(exception) }
         }
     }

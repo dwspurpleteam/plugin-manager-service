@@ -46,7 +46,7 @@ class DefaultBackgroundJobs(
     }
 
     private fun WorkKind.concurrency(): Int = when (this) {
-        WorkKind.ACTIVATE -> config.activation().concurrency()
+        WorkKind.ACTIVATE, WorkKind.DEACTIVATE -> config.activation().concurrency()
         WorkKind.HEALTHCHECK -> config.health().concurrency()
     }
 

@@ -15,7 +15,6 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
 import ru.itmo.pluginmanager.jooq.generated.enums.ActivationState as DatabaseActivationState
-import ru.itmo.pluginmanager.jooq.generated.enums.ActivationWorkKind as DatabaseActivationWorkKind
 
 @ApplicationScoped
 class JooqWorkStore(private val transaction: JooqTransaction) : WorkStore {
@@ -28,7 +27,7 @@ class JooqWorkStore(private val transaction: JooqTransaction) : WorkStore {
                         SELECT w.activation_id
                         FROM activation_work w
                         JOIN plugin_activation a ON a.activation_id = w.activation_id
-                        WHERE w.kind = ?
+                        WHERE w.kind = ?::activation_work_kind
                             AND a.state = ?
                             AND w.next_run_at <= clock_timestamp()
                             AND (w.lease_until IS NULL OR w.lease_until <= clock_timestamp())
@@ -38,10 +37,12 @@ class JooqWorkStore(private val transaction: JooqTransaction) : WorkStore {
                     SET lease_token = gen_random_uuid(),
                         lease_until = clock_timestamp() + (? * INTERVAL '1 millisecond'),
                         attempt_count = w.attempt_count + 1
-                    FROM picked p WHERE w.activation_id = p.activation_id RETURNING w.*
+                    FROM picked p WHERE w.activation_id = p.activation_id
+                    RETURNING w.activation_id, w.lease_token, w.lease_until, w.attempt_count,
+                        w.consecutive_health_failures, w.requested_by
                 """.trimIndent(),
-                DatabaseActivationWorkKind.valueOf(kind.name),
-                if (kind == WorkKind.ACTIVATE) DatabaseActivationState.ACTIVATING else DatabaseActivationState.ACTIVE,
+                kind.name,
+                kind.expectedState,
                 limit,
                 leaseDuration.toMillis(),
             ).asFlow().toList().map { row ->
@@ -53,19 +54,16 @@ class JooqWorkStore(private val transaction: JooqTransaction) : WorkStore {
                     record.leaseUntil.toInstant(),
                     record.attemptCount,
                     record.consecutiveHealthFailures,
+                    row.get("requested_by", String::class.java),
                 )
             }
         }
     }
 
-    override suspend fun retryActivation(lease: WorkLease, nextRunAt: Instant, reason: ErrorCode) {
+    override suspend fun retryDelivery(lease: WorkLease, nextRunAt: Instant, reason: ErrorCode) {
         transaction.transaction { dsl ->
-            val activation = dsl.lockActivation(lease)
-            if (activation.state != DatabaseActivationState.ACTIVATING ||
-                lease.kind != WorkKind.ACTIVATE
-            ) {
-                storageError()
-            }
+            check(lease.kind != WorkKind.HEALTHCHECK)
+            dsl.lockActivation(lease)
             dsl.update(ACTIVATION_WORK).set(ACTIVATION_WORK.NEXT_RUN_AT, nextRunAt.atOffset(ZoneOffset.UTC))
                 .set(ACTIVATION_WORK.LAST_ERROR_CODE, reason.name)
                 .setNull(ACTIVATION_WORK.LEASE_TOKEN).setNull(ACTIVATION_WORK.LEASE_UNTIL)

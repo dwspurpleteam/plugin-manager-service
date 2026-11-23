@@ -11,8 +11,8 @@ interface WorkStore {
     /** Захватывает готовые или просроченные задания; попытка учитывается до выполнения внешних запросов. */
     suspend fun claim(kind: WorkKind, limit: Int, leaseDuration: Duration): List<WorkLease>
 
-    /** Освобождает lease и сохраняет следующую попытку активации, не сбрасывая её счётчик. */
-    suspend fun retryActivation(lease: WorkLease, nextRunAt: Instant, reason: ErrorCode)
+    /** Освобождает lease и сохраняет следующую попытку доставки команды, не сбрасывая её счётчик. */
+    suspend fun retryDelivery(lease: WorkLease, nextRunAt: Instant, reason: ErrorCode)
 
     /** Фиксирует проверку и планирует следующую; при пороге ошибок атомарно пишет FAILED и историю. */
     suspend fun recordHealthcheck(lease: WorkLease, healthy: Boolean, nextRunAt: Instant, failureThreshold: Int)

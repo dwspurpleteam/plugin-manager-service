@@ -4,6 +4,7 @@ import jakarta.ws.rs.Path
 import jakarta.ws.rs.core.Response
 import ru.itmo.pluginmanager.application.ActivationService
 import ru.itmo.pluginmanager.domain.ActivationRequest
+import ru.itmo.pluginmanager.domain.ActivationState
 import java.net.URI
 import java.util.UUID
 
@@ -24,6 +25,18 @@ class ActivationResource(private val service: ActivationService) : ActivationApi
         return Response.status(if (result.created) Response.Status.ACCEPTED else Response.Status.OK)
             .location(URI("/v1/activations/${result.activationId}"))
             .entity(RegisterActivationResponse(result.activationId)).build()
+    }
+
+    override suspend fun deactivate(activationId: UUID, request: DeactivateActivationRequest): Response {
+        val activation = service.deactivate(activationId, request.requestedBy)
+        val stopped = activation.state == ActivationState.STOPPED
+        val context = DeactivationContext(
+            activationId = activationId,
+            pluginId = activation.request.pluginId,
+            success = stopped,
+            deactivatedAt = activation.stateChangedAt.epochSecond.takeIf { stopped },
+        )
+        return Response.accepted(context).location(URI("/v1/activations/$activationId")).build()
     }
 
     override suspend fun get(activationId: UUID): ActivationResponse {

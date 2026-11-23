@@ -27,7 +27,9 @@ class ApiExceptionMapper : ExceptionMapper<Throwable> {
 
             ErrorCode.REGISTRY_INVALID_RESPONSE, ErrorCode.INVALID_MANIFEST -> Response.Status.BAD_GATEWAY
 
-            ErrorCode.REGISTRY_UNAVAILABLE, ErrorCode.DATABASE_UNAVAILABLE -> Response.Status.SERVICE_UNAVAILABLE
+            ErrorCode.REGISTRY_UNAVAILABLE, ErrorCode.DATABASE_UNAVAILABLE,
+            ErrorCode.PLUGIN_DEACTIVATION_UNAVAILABLE,
+            -> Response.Status.SERVICE_UNAVAILABLE
 
             else -> Response.Status.INTERNAL_SERVER_ERROR
         }

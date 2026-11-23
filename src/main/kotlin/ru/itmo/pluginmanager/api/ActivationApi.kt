@@ -8,6 +8,9 @@ import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import org.eclipse.microprofile.openapi.annotations.media.Content
+import org.eclipse.microprofile.openapi.annotations.media.Schema
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse
 import java.util.UUID
 
 /** REST-контракт активаций; реализация подключается после согласования каркаса. */
@@ -18,6 +21,19 @@ interface ActivationApi {
     /** Возвращает 202 и Location для новой активации, 200 для повтора, 409 для конфликта ключа. */
     @POST
     suspend fun register(request: RegisterActivationRequest): Response
+
+    /** Ставит деактивацию плагина в очередь и возвращает 202 и Location. */
+    @POST
+    @Path("/{activationId}/deactivate")
+    @APIResponse(
+        responseCode = "202",
+        description = "Deactivation accepted",
+        content = [Content(schema = Schema(implementation = DeactivationContext::class))],
+    )
+    suspend fun deactivate(
+        @PathParam("activationId") activationId: UUID,
+        request: DeactivateActivationRequest,
+    ): Response
 
     /** Возвращает состояние либо 404 для неизвестной активации. */
     @GET

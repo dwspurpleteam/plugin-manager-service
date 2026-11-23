@@ -15,6 +15,7 @@ import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.domain.PluginActivationMessage
 import ru.itmo.pluginmanager.domain.PluginConfiguration
+import ru.itmo.pluginmanager.domain.PluginDeactivationMessage
 import ru.itmo.pluginmanager.domain.PluginEvents
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
@@ -48,6 +49,8 @@ class LifecycleContractTest {
     private var allowedDuringNotification = false
     private val secrets = ActivationSecrets("0123456789abcdef0123456789abcdef")
     private val notifier = object : PluginActivationNotifier {
+        override suspend fun deactivate(endpoint: String, message: PluginDeactivationMessage) = Unit
+
         override suspend fun notify(endpoint: String, message: PluginActivationMessage) {
             sentEndpoint = endpoint
             sentMessage = message

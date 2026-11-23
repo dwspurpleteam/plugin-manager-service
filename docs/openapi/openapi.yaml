@@ -168,6 +168,32 @@ components:
           type: string
         manifest:
           $ref: "#/components/schemas/PluginManifest"
+    DeactivateActivationRequest:
+      type: object
+      required:
+      - requestedBy
+      properties:
+        requestedBy:
+          type: string
+    DeactivationContext:
+      type: object
+      required:
+      - activationId
+      - pluginId
+      - success
+      - deactivatedAt
+      properties:
+        activationId:
+          $ref: "#/components/schemas/UUID"
+        pluginId:
+          type: string
+        success:
+          type: boolean
+        deactivatedAt:
+          type:
+          - integer
+          - "null"
+          format: int64
     ErrorCode:
       type: string
       enum:
@@ -180,6 +206,7 @@ components:
       - ACTIVATION_FAILED
       - ACTIVATION_NOT_ACTIVE
       - REGISTRY_UNAVAILABLE
+      - PLUGIN_DEACTIVATION_UNAVAILABLE
       - REGISTRY_INVALID_RESPONSE
       - INVALID_MANIFEST
       - HEALTHCHECK_FAILED
@@ -392,6 +419,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/ActivationResponse"
       summary: Get
+      tags:
+      - Activation Resource
+  /v1/activations/{activationId}/deactivate:
+    post:
+      parameters:
+      - name: activationId
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/UUID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeactivateActivationRequest"
+        required: true
+      responses:
+        "202":
+          description: Deactivation accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeactivationContext"
+        "400":
+          description: Bad Request
+      summary: Deactivate
       tags:
       - Activation Resource
   /v1/activations/{activationId}/media-types:

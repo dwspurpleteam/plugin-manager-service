@@ -116,7 +116,7 @@ class DefaultActivationProcessor(
             store.fail(lease, code)
         } else {
             val delay = config.activation().retryDelays()[lease.attemptCount - 1]
-            work.retryActivation(lease, clock.instant().plus(delay), code)
+            work.retryDelivery(lease, clock.instant().plus(delay), code)
         }
     }
 }
