@@ -98,6 +98,9 @@ data class ActivationRoute(
     val allowedEventTypes: Set<String>?,
     val allowedEventGroups: Set<String>?,
     val healthcheckUrl: String,
+    val allowedMediaTypes: Set<MediaType> = emptySet(),
+    val allowedActions: Set<String> = emptySet(),
+    val includeParticipants: Boolean = false,
 )
 
 /** Команда завершения работы Plugin Backend для конкретной активации звонка. */

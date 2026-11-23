@@ -18,6 +18,7 @@ import ru.itmo.pluginmanager.routes.v1.MediaType
 import ru.itmo.pluginmanager.support.MemoryStores
 import ru.itmo.pluginmanager.support.manifest
 import java.util.UUID
+import ru.itmo.pluginmanager.domain.MediaType as ManifestMediaType
 
 class RoutesServiceImplTest {
     private val store = MemoryStores()
@@ -29,6 +30,22 @@ class RoutesServiceImplTest {
     private val secrets = ActivationSecrets("0123456789abcdef0123456789abcdef")
     private val service = RoutesServiceImpl(store, configuration, secrets)
 
+    private fun savedRoute(
+        eventTypes: Set<String>? = setOf("participant.joined"),
+        eventGroups: Set<String>? = null,
+        mediaTypes: Set<ManifestMediaType> = setOf(ManifestMediaType.AUDIO, ManifestMediaType.SCREEN_SHARE_AUDIO),
+        actions: Set<String> = emptySet(),
+    ) = ActivationRoute(
+        UUID.randomUUID(),
+        store.activation.activationId,
+        "https://example.org",
+        eventTypes,
+        eventGroups,
+        "https://example.org",
+        mediaTypes,
+        actions,
+    )
+
     @Test
     fun `permits an activating plugin after its route is prepared`() = runBlocking {
         store.activation = store.activation.copy(state = ActivationState.ACTIVATING, selection = selection)
@@ -37,14 +54,7 @@ class RoutesServiceImplTest {
             .setEventType(EventType.EVENT_TYPE_PARTICIPANT_JOINED).setActivationId(activationId)
             .setActivationSecret(secrets.issue("call", activationId)).build()
         assertFalse(service.getPermissionsForEvent(event).canSend)
-        store.savedRoute = ActivationRoute(
-            UUID.randomUUID(),
-            store.activation.activationId,
-            "https://example.org",
-            null,
-            null,
-            "https://example.org",
-        )
+        store.savedRoute = savedRoute()
         assertTrue(service.getPermissionsForEvent(event).canSend)
         assertFalse(service.getPermissionsForEvent(event.toBuilder().setActivationSecret("wrong").build()).canSend)
     }
@@ -52,48 +62,26 @@ class RoutesServiceImplTest {
     @Test
     fun `explicit event types take precedence over event groups`() = runBlocking {
         store.activation = store.activation.copy(state = ActivationState.ACTIVE, selection = selection)
-        val base = manifest()
-        val events = base.backend.events!!.copy(
-            availableEventTypes = setOf("participant.left"),
-            availableEventGroups = setOf("participant"),
-        )
-        val restricted = base.copy(backend = base.backend.copy(events = events))
-        val source = object : ConfigurationService {
-            override suspend fun resolve(pluginId: String, pluginVersion: String?, registryId: String?) = selection
-            override suspend fun get(selection: PluginSelection) = PluginConfiguration(selection, restricted)
-        }
+        store.savedRoute = savedRoute(eventTypes = setOf("participant.left"), eventGroups = null)
         val request = CheckEventPermissionRequest.newBuilder().setCallId("call")
             .setEventType(EventType.EVENT_TYPE_PARTICIPANT_JOINED).build()
 
-        assertFalse(RoutesServiceImpl(store, source, secrets).getPermissionsForEvent(request).canSend)
+        assertFalse(service.getPermissionsForEvent(request).canSend)
     }
 
     @Test
     fun `allows participant events declared by group`() = runBlocking {
         store.activation = store.activation.copy(state = ActivationState.ACTIVE, selection = selection)
-        val base = manifest()
-        val source = object : ConfigurationService {
-            override suspend fun resolve(pluginId: String, pluginVersion: String?, registryId: String?) = selection
-            override suspend fun get(selection: PluginSelection) = PluginConfiguration(
-                selection,
-                base.copy(
-                    backend = base.backend.copy(
-                        events = base.backend.events!!.copy(
-                            availableEventTypes = null,
-                            availableEventGroups = setOf("participant"),
-                        ),
-                    ),
-                ),
-            )
-        }
+        store.savedRoute = savedRoute(eventTypes = null, eventGroups = setOf("participant"))
         val request = CheckEventPermissionRequest.newBuilder().setCallId("call")
             .setEventType(EventType.EVENT_TYPE_PARTICIPANT_JOINED).build()
-        assertTrue(RoutesServiceImpl(store, source, secrets).getPermissionsForEvent(request).canSend)
+        assertTrue(service.getPermissionsForEvent(request).canSend)
     }
 
     @Test
     fun `permits configured event and media only for an active call`() = runBlocking {
         store.activation = store.activation.copy(state = ActivationState.ACTIVE, selection = selection)
+        store.savedRoute = savedRoute()
         val event = CheckEventPermissionRequest.newBuilder().setCallId("call")
             .setEventType(EventType.EVENT_TYPE_PARTICIPANT_JOINED).build()
         val media = CheckMediaPermissionRequest.newBuilder().setCallId("call")
@@ -113,6 +101,7 @@ class RoutesServiceImplTest {
     @Test
     fun `checks event and media for the requested activation`() = runBlocking {
         store.activation = store.activation.copy(state = ActivationState.ACTIVE, selection = selection)
+        store.savedRoute = savedRoute()
         val activationId = store.activation.activationId.toString()
         val event = CheckEventPermissionRequest.newBuilder().setCallId("call")
             .setEventType(EventType.EVENT_TYPE_PARTICIPANT_JOINED).setActivationId(activationId)
@@ -135,18 +124,10 @@ class RoutesServiceImplTest {
     @Test
     fun `allows only declared actions for active activation`() = runBlocking {
         store.activation = store.activation.copy(state = ActivationState.ACTIVE, selection = selection)
-        val base = manifest()
-        val source = object : ConfigurationService {
-            override suspend fun resolve(pluginId: String, pluginVersion: String?, registryId: String?) = selection
-            override suspend fun get(selection: PluginSelection) = PluginConfiguration(
-                selection,
-                base.copy(backend = base.backend.copy(actions = setOf("microphone.mute"))),
-            )
-        }
+        store.savedRoute = savedRoute(actions = setOf("microphone.mute"))
         val request = CheckActionPermissionRequest.newBuilder().setCallId("call")
             .setActivationId(store.activation.activationId.toString()).setAction("microphone.mute")
             .setActivationSecret(secrets.issue("call", store.activation.activationId.toString())).build()
-        val service = RoutesServiceImpl(store, source, secrets)
         assertTrue(service.checkAction(request).allowed)
         assertFalse(service.checkAction(request.toBuilder().setActivationSecret("wrong").build()).allowed)
         assertFalse(service.checkAction(request.toBuilder().setAction("participant.remove").build()).allowed)

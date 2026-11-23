@@ -183,12 +183,87 @@
       },
       "ErrorCode" : {
         "type" : "string",
-        "enum" : [ "INVALID_REQUEST", "UNKNOWN_REGISTRY", "PLUGIN_NOT_FOUND", "ACTIVATION_NOT_FOUND", "IDEMPOTENCY_CONFLICT", "ACTIVATION_NOT_READY", "ACTIVATION_FAILED", "ACTIVATION_NOT_ACTIVE", "REGISTRY_UNAVAILABLE", "PLUGIN_DEACTIVATION_UNAVAILABLE", "REGISTRY_INVALID_RESPONSE", "INVALID_MANIFEST", "HEALTHCHECK_FAILED", "ACTIVATION_ATTEMPTS_EXHAUSTED", "LEASE_LOST", "DATABASE_UNAVAILABLE", "INTERNAL_ERROR" ]
+        "enum" : [ "INVALID_REQUEST", "UNKNOWN_REGISTRY", "PLUGIN_NOT_FOUND", "ACTIVATION_NOT_FOUND", "IDEMPOTENCY_CONFLICT", "MANIFEST_VERSION_CONFLICT", "ACTIVATION_NOT_READY", "ACTIVATION_FAILED", "ACTIVATION_NOT_ACTIVE", "REGISTRY_UNAVAILABLE", "PLUGIN_DEACTIVATION_UNAVAILABLE", "REGISTRY_INVALID_RESPONSE", "INVALID_MANIFEST", "HEALTHCHECK_FAILED", "ACTIVATION_ATTEMPTS_EXHAUSTED", "LEASE_LOST", "DATABASE_UNAVAILABLE", "INTERNAL_ERROR" ]
       },
       "Instant" : {
         "type" : "string",
         "format" : "date-time",
         "examples" : [ "2022-03-10T16:15:50Z" ]
+      },
+      "JsonNode" : {
+        "type" : "object",
+        "properties" : {
+          "empty" : {
+            "type" : "boolean"
+          },
+          "valueNode" : {
+            "type" : "boolean"
+          },
+          "containerNode" : {
+            "type" : "boolean"
+          },
+          "missingNode" : {
+            "type" : "boolean"
+          },
+          "array" : {
+            "type" : "boolean"
+          },
+          "object" : {
+            "type" : "boolean"
+          },
+          "nodeType" : {
+            "$ref" : "#/components/schemas/JsonNodeType"
+          },
+          "pojo" : {
+            "type" : "boolean"
+          },
+          "number" : {
+            "type" : "boolean"
+          },
+          "integralNumber" : {
+            "type" : "boolean"
+          },
+          "floatingPointNumber" : {
+            "type" : "boolean"
+          },
+          "short" : {
+            "type" : "boolean"
+          },
+          "int" : {
+            "type" : "boolean"
+          },
+          "long" : {
+            "type" : "boolean"
+          },
+          "float" : {
+            "type" : "boolean"
+          },
+          "double" : {
+            "type" : "boolean"
+          },
+          "bigDecimal" : {
+            "type" : "boolean"
+          },
+          "bigInteger" : {
+            "type" : "boolean"
+          },
+          "textual" : {
+            "type" : "boolean"
+          },
+          "boolean" : {
+            "type" : "boolean"
+          },
+          "null" : {
+            "type" : "boolean"
+          },
+          "binary" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "JsonNodeType" : {
+        "type" : "string",
+        "enum" : [ "ARRAY", "BINARY", "BOOLEAN", "MISSING", "NULL", "NUMBER", "OBJECT", "POJO", "STRING" ]
       },
       "MediaType" : {
         "type" : "string",
@@ -214,7 +289,7 @@
         "type" : "object",
         "properties" : {
           "sdk-version" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "health-url" : {
             "type" : "string"
@@ -238,9 +313,15 @@
             "items" : {
               "type" : "string"
             }
+          },
+          "initial-state" : {
+            "type" : "array",
+            "uniqueItems" : true,
+            "items" : {
+              "type" : "string"
+            }
           }
-        },
-        "required" : [ "media" ]
+        }
       },
       "PluginEvents" : {
         "type" : "object",
@@ -265,7 +346,7 @@
         "type" : "object",
         "properties" : {
           "sdk-version" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "url-web" : {
             "type" : "string"
@@ -288,7 +369,7 @@
             "type" : "string"
           },
           "description" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "frontend" : {
             "$ref" : "#/components/schemas/PluginFrontend"
@@ -297,11 +378,10 @@
             "$ref" : "#/components/schemas/PluginBackend"
           }
         },
-        "required" : [ "name", "description", "frontend", "backend" ]
+        "required" : [ "name", "frontend", "backend" ]
       },
       "PluginMedia" : {
         "type" : "object",
-        "required" : [ "input", "output" ],
         "properties" : {
           "input" : {
             "type" : "array",
@@ -530,6 +610,35 @@
         },
         "summary" : "Signal Route",
         "tags" : [ "Activation Resource" ]
+      }
+    },
+    "/v1/manifest-versions" : {
+      "post" : {
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonNode"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : { }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request"
+          }
+        },
+        "summary" : "Register",
+        "tags" : [ "Manifest Version Resource" ]
       }
     },
     "/v1/plugins/{pluginId}/configuration" : {

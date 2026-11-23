@@ -19,6 +19,8 @@ interface RegistryHttpEndpoint : AutoCloseable {
     @Path("/v1/plugins/{id}/versions")
     suspend fun versions(
         @PathParam("id") id: String,
+        @QueryParam("page") page: Int,
+        @QueryParam("limit") limit: Int,
     ): RestResponse<String>
 
     @GET

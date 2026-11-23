@@ -178,8 +178,15 @@ class JooqActivationStore(private val tx: JooqTransaction, private val mapper: O
             dsl.insertInto(ACTIVATION_ROUTE).set(ACTIVATION_ROUTE.ROUTE_ID, route.routeId)
                 .set(ACTIVATION_ROUTE.ACTIVATION_ID, lease.activationId)
                 .set(ACTIVATION_ROUTE.SIGNAL_DST, route.signalDst)
+                .set(
+                    ACTIVATION_ROUTE.MEDIA_TYPES,
+                    route.allowedMediaTypes.sortedBy { it.name }
+                        .map { ru.itmo.pluginmanager.jooq.generated.enums.MediaType.valueOf(it.name) }.toTypedArray(),
+                )
                 .set(ACTIVATION_ROUTE.ALLOWED_EVENT_TYPES, route.allowedEventTypes?.sorted()?.toTypedArray())
                 .set(ACTIVATION_ROUTE.ALLOWED_EVENT_GROUPS, route.allowedEventGroups?.sorted()?.toTypedArray())
+                .set(field("allowed_actions", Array<String>::class.java), route.allowedActions.sorted().toTypedArray())
+                .set(field("include_participants", Boolean::class.java), route.includeParticipants)
                 .set(ACTIVATION_ROUTE.HEALTHCHECK_URL, route.healthcheckUrl)
                 .onConflict(ACTIVATION_ROUTE.ACTIVATION_ID).doNothing().awaitSingle()
             dsl.update(PLUGIN_ACTIVATION)

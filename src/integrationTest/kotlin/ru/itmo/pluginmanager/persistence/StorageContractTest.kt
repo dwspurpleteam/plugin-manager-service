@@ -27,6 +27,7 @@ import ru.itmo.pluginmanager.domain.ActivationRequest
 import ru.itmo.pluginmanager.domain.ActivationRoute
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
+import ru.itmo.pluginmanager.domain.MediaType
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
 import ru.itmo.pluginmanager.domain.SnapshotConsistency
@@ -190,10 +191,18 @@ class StorageContractTest {
                 activationId = id,
                 signalDst = "https://example.com",
                 allowedEventTypes = null,
-                allowedEventGroups = null,
+                allowedEventGroups = setOf("participant"),
                 healthcheckUrl = "https://example.com/health",
+                allowedMediaTypes = setOf(MediaType.AUDIO),
+                allowedActions = setOf("microphone.mute"),
+                includeParticipants = true,
             ),
         )
+        val route = checkNotNull(store.route(id))
+        assertEquals(setOf(MediaType.AUDIO), route.allowedMediaTypes)
+        assertEquals(setOf("participant"), route.allowedEventGroups)
+        assertEquals(setOf("microphone.mute"), route.allowedActions)
+        assertEquals(true, route.includeParticipants)
         store.activate(lease, Instant.EPOCH)
         for (healthy in listOf(false, false, true, false, false)) {
             val probe = work().claim(WorkKind.HEALTHCHECK, 1, Duration.ofSeconds(30)).single()

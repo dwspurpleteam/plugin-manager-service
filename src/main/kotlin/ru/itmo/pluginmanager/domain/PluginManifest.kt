@@ -1,5 +1,6 @@
 package ru.itmo.pluginmanager.domain
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 
 data class PluginManifest(
@@ -7,23 +8,27 @@ data class PluginManifest(
     @get:JsonProperty("plugin-id") @param:JsonProperty("plugin-id") val pluginId: String,
     @get:JsonProperty("plugin-version") @param:JsonProperty("plugin-version") val pluginVersion: String,
     val name: String,
-    val description: String,
+    val description: String? = null,
     val frontend: PluginFrontend,
     val backend: PluginBackend,
 )
 
 data class PluginFrontend(
-    @get:JsonProperty("sdk-version") @param:JsonProperty("sdk-version") val sdkVersion: String,
+    @get:JsonProperty("sdk-version") @param:JsonProperty("sdk-version") val sdkVersion: String? = null,
     @get:JsonProperty("url-web") @param:JsonProperty("url-web") val urlWeb: String,
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class PluginBackend(
-    @get:JsonProperty("sdk-version") @param:JsonProperty("sdk-version") val sdkVersion: String,
+    @get:JsonProperty("sdk-version") @param:JsonProperty("sdk-version") val sdkVersion: String? = null,
     @get:JsonProperty("health-url") @param:JsonProperty("health-url") val healthUrl: String,
     @get:JsonProperty("control-url") @param:JsonProperty("control-url") val controlUrl: String,
-    val media: PluginMedia,
+    val media: PluginMedia = PluginMedia(),
     val events: PluginEvents? = null,
     val actions: Set<String> = emptySet(),
+    @get:JsonProperty("initial-state")
+    @param:JsonProperty("initial-state")
+    val initialState: Set<String> = emptySet(),
 )
 
 data class PluginEvents(
@@ -35,6 +40,6 @@ data class PluginEvents(
     val availableEventGroups: Set<String>? = null,
 )
 
-data class PluginMedia(val input: Set<MediaType>, val output: Set<MediaType>)
+data class PluginMedia(val input: Set<MediaType> = emptySet(), val output: Set<MediaType> = emptySet())
 
 data class PluginConfiguration(val selection: PluginSelection, val manifest: PluginManifest)

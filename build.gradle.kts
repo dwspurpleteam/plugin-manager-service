@@ -100,6 +100,7 @@ dependencies {
     implementation(libs.org.jetbrains.kotlinx.kotlinx.coroutines.reactive)
     implementation(libs.io.quarkus.quarkus.redis.client)
     implementation(libs.com.fasterxml.jackson.module.kotlin)
+    implementation(libs.com.networknt.json.schema.validator)
 
     testImplementation(libs.io.quarkus.quarkus.junit)
     testImplementation(libs.io.rest.assured.rest.assured)

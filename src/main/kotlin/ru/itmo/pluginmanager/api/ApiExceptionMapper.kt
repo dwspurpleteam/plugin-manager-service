@@ -21,7 +21,7 @@ class ApiExceptionMapper : ExceptionMapper<Throwable> {
 
             ErrorCode.PLUGIN_NOT_FOUND, ErrorCode.ACTIVATION_NOT_FOUND -> Response.Status.NOT_FOUND
 
-            ErrorCode.IDEMPOTENCY_CONFLICT, ErrorCode.ACTIVATION_NOT_READY,
+            ErrorCode.IDEMPOTENCY_CONFLICT, ErrorCode.MANIFEST_VERSION_CONFLICT, ErrorCode.ACTIVATION_NOT_READY,
             ErrorCode.ACTIVATION_FAILED, ErrorCode.ACTIVATION_NOT_ACTIVE,
             -> Response.Status.CONFLICT
 

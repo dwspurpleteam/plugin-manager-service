@@ -1,5 +1,8 @@
 package ru.itmo.pluginmanager.application
 
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -16,6 +19,7 @@ import ru.itmo.pluginmanager.support.policy
 import kotlin.time.Duration.Companion.milliseconds
 
 class ConfigurationEdgeContractTest {
+    private val mapper = ObjectMapper().registerKotlinModule()
     private val pages = mutableListOf<Int>()
     private var response: PluginManifest? = manifest()
     private var pause = 0L
@@ -31,20 +35,27 @@ class ConfigurationEdgeContractTest {
             )
         }
         override suspend fun versions(registryId: String, pluginId: String) = emptyList<String>()
-        override suspend fun manifest(registryId: String, pluginId: String, version: String): PluginManifest? {
+        override suspend fun manifest(registryId: String, pluginId: String, version: String): JsonNode? {
             delay(pause.milliseconds)
-            return response
+            return response?.let(mapper::valueToTree)
         }
     }
     private fun service(): ConfigurationService = DefaultConfigurationService(
         policy(
             mapOf(
                 "plugin-manager.registries.test.url" to "http://localhost:1",
-                "plugin-manager.http.search-timeout" to "PT0.05S",
+                "plugin-manager.http.search-timeout" to "PT2S",
             ),
         ),
         registry,
+        acceptingSchemas,
+        mapper,
     )
+
+    private val acceptingSchemas = object : ManifestSchemaService {
+        override suspend fun register(schema: JsonNode) = error("Not used")
+        override suspend fun validate(manifest: JsonNode) = Unit
+    }
 
     /**
      * Тест проверяет поиск latest-версии с переходом на следующую страницу реестра.
@@ -69,7 +80,7 @@ class ConfigurationEdgeContractTest {
         }
         assertEquals(ErrorCode.INVALID_MANIFEST, invalid.code)
         response = manifest()
-        pause = 200
+        pause = 3_000
         val timeout = assertThrows(PluginManagerException::class.java) {
             runBlocking { service().resolve("plugin", "1.0.0") }
         }

@@ -13,6 +13,7 @@ class PostgresTestResource : QuarkusTestResourceLifecycleManager {
         postgres.start()
 
         return mapOf(
+            "quarkus.scheduler.enabled" to "false",
             "database.host" to postgres.host,
             "database.port" to postgres.firstMappedPort.toString(),
             "database.name" to postgres.databaseName,

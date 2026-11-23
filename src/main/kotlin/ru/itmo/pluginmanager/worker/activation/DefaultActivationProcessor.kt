@@ -70,12 +70,15 @@ class DefaultActivationProcessor(
             val manifest = configurations.get(selection).manifest
             val allowedEventTypes = manifest.backend.events?.availableEventTypes
             ActivationRoute(
-                UUID.randomUUID(),
-                lease.activationId,
-                manifest.backend.controlUrl,
-                allowedEventTypes,
-                manifest.backend.events?.availableEventGroups.takeIf { allowedEventTypes == null },
-                manifest.backend.healthUrl,
+                routeId = UUID.randomUUID(),
+                activationId = lease.activationId,
+                signalDst = manifest.backend.controlUrl,
+                allowedEventTypes = allowedEventTypes,
+                allowedEventGroups = manifest.backend.events?.availableEventGroups.takeIf { allowedEventTypes == null },
+                healthcheckUrl = manifest.backend.healthUrl,
+                allowedMediaTypes = manifest.backend.media.input,
+                allowedActions = manifest.backend.actions,
+                includeParticipants = "participants" in manifest.backend.initialState,
             ).also { store.saveRoute(lease, it) }
         }
         if (!health.check(route.healthcheckUrl)) {
@@ -101,7 +104,9 @@ class DefaultActivationProcessor(
                 registryId = selection.registryId,
                 callId = activation.request.callId,
                 activationSecret = secrets.issue(activation.request.callId, activation.activationId.toString()),
-                initialContext = activation.request.initialContext,
+                initialContext = activation.request.initialContext?.let { context ->
+                    if (route.includeParticipants) context else context.copy(participants = emptyList())
+                },
             ),
         )
     }
