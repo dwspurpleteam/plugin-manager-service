@@ -60,6 +60,11 @@ class JooqWorkStore(private val transaction: JooqTransaction) : WorkStore {
         }
     }
 
+    override suspend fun verifyActivationLease(lease: WorkLease) {
+        check(lease.kind == WorkKind.ACTIVATE)
+        transaction.transaction { dsl -> dsl.lockActivation(lease) }
+    }
+
     override suspend fun retryDelivery(lease: WorkLease, nextRunAt: Instant, reason: ErrorCode) {
         transaction.transaction { dsl ->
             check(lease.kind != WorkKind.HEALTHCHECK)

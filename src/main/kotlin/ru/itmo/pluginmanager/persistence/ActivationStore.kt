@@ -30,6 +30,9 @@ interface ActivationStore {
     /** Читает сохранённый маршрут независимо от состояния; проверка доступности относится к сервису. */
     suspend fun route(activationId: UUID): ActivationRoute?
 
+    /** Читает исходный адрес управления плагином после очистки маршрута. */
+    suspend fun controlUrl(activationId: UUID): String?
+
     /** Фиксирует первый выбор версии под действующим lease; последующая замена запрещена. */
     suspend fun pinSelection(lease: WorkLease, selection: PluginSelection)
 

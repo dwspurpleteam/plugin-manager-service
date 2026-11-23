@@ -213,7 +213,7 @@ class StorageContractTest {
 
     /**
      * Тест проверяет очистку истории и маршрутов без удаления активаций.
-     * Ожидаемый результат: текущая история и активный маршрут сохраняются; FAILED-маршрут удаляется.
+     * Ожидаемый результат: маршрут FAILED-активации удаляется, исходный адрес управления сохраняется.
      */
     @Test
     fun `garbage collection preserves current revision and active routes`() = runBlocking {
@@ -240,6 +240,7 @@ class StorageContractTest {
         store.fail(work().claim(WorkKind.HEALTHCHECK, 1, Duration.ofSeconds(30)).single(), ErrorCode.HEALTHCHECK_FAILED)
         assertEquals(1, maintenance().deleteInactiveRoutes(100))
         assertNull(store.route(id))
+        assertEquals("https://example.com", store.controlUrl(id))
         assertFalse(store.find(id) == null)
         assertEquals(1, maintenance().deleteHistoryBefore(Instant.now().plusSeconds(60), 100))
     }

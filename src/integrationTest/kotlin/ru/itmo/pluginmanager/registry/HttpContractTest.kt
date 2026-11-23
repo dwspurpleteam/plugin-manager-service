@@ -64,13 +64,13 @@ class HttpContractTest {
             store.activation = store.activation.copy(state = ActivationState.ACTIVE)
             val endpoint = "http://127.0.0.1:${server.address.port}/plugin/control"
             store.savedRoute = ActivationRoute(UUID.randomUUID(), id, endpoint, null, null, endpoint)
+            store.savedControlUrl = endpoint
             val config = policy()
             val secrets = ActivationSecrets("0123456789abcdef0123456789abcdef")
             val service = ActivationServiceImpl(store, config, configurations)
             val worker = DefaultDeactivationProcessor(
                 store,
                 store,
-                configurations,
                 HttpPluginActivationNotifier(config, true),
                 secrets,
                 config,
@@ -84,6 +84,7 @@ class HttpContractTest {
             assertEquals(true, store.retried)
             assertEquals(ActivationState.STOPPING, store.activation.state)
             assertEquals(endpoint, store.savedRoute?.signalDst)
+            store.savedRoute = null
             worker.process(lease.copy(attemptCount = 2))
             assertEquals(ActivationState.STOPPED, store.activation.state)
             assertNull(store.savedRoute)

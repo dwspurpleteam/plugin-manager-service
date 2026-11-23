@@ -7,11 +7,14 @@ import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.reactive.awaitSingle
 import org.jooq.JSONB
+import org.jooq.impl.DSL.field
+import org.jooq.impl.DSL.name
 import ru.itmo.pluginmanager.database.JooqTransaction
 import ru.itmo.pluginmanager.domain.ActivationRequest
 import ru.itmo.pluginmanager.domain.ActivationRoute
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
+import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
 import ru.itmo.pluginmanager.domain.RegistrationResult
 import ru.itmo.pluginmanager.jooq.generated.Tables.ACTIVATION_ROUTE
@@ -28,6 +31,9 @@ import ru.itmo.pluginmanager.jooq.generated.enums.ActivationWorkKind as Database
 
 @ApplicationScoped
 class JooqActivationStore(private val tx: JooqTransaction, private val mapper: ObjectMapper) : ActivationStore {
+    private val controlUrl = field(name("control_url"), String::class.java)
+    private val controlUrlUnknown = field(name("control_url_unknown"), Boolean::class.javaObjectType)
+
     override suspend fun register(request: ActivationRequest): RegistrationResult = tx.transaction { dsl ->
         val id = UUID.randomUUID()
         val inserted = dsl.insertInto(PLUGIN_ACTIVATION)
@@ -75,6 +81,11 @@ class JooqActivationStore(private val tx: JooqTransaction, private val mapper: O
             .forUpdate().awaitFirstOrNull() ?: storageError(ErrorCode.ACTIVATION_NOT_FOUND)
         if (record.state == DatabaseActivationState.STOPPED) {
             return@transaction record.toDomain(mapper)
+        }
+        if (dsl.select(controlUrlUnknown).from(PLUGIN_ACTIVATION)
+                .where(PLUGIN_ACTIVATION.ACTIVATION_ID.eq(activationId)).awaitSingle().value1() == true
+        ) {
+            throw missingControlUrl()
         }
         if (record.state == DatabaseActivationState.STOPPING &&
             dsl.selectOne().from(ACTIVATION_WORK).where(ACTIVATION_WORK.ACTIVATION_ID.eq(activationId))
@@ -134,6 +145,13 @@ class JooqActivationStore(private val tx: JooqTransaction, private val mapper: O
 
     override suspend fun route(activationId: UUID) = tx.transaction { it.readRoute(activationId) }
 
+    override suspend fun controlUrl(activationId: UUID): String? = tx.transaction { dsl ->
+        val endpoint = dsl.select(controlUrl, controlUrlUnknown).from(PLUGIN_ACTIVATION)
+            .where(PLUGIN_ACTIVATION.ACTIVATION_ID.eq(activationId)).awaitSingle()
+        if (endpoint.value2() == true) throw missingControlUrl()
+        endpoint.value1()
+    }
+
     override suspend fun pinSelection(lease: WorkLease, selection: PluginSelection) {
         tx.transaction { dsl ->
             val activation = dsl.lockActivation(lease).toDomain(mapper)
@@ -164,6 +182,15 @@ class JooqActivationStore(private val tx: JooqTransaction, private val mapper: O
                 .set(ACTIVATION_ROUTE.ALLOWED_EVENT_GROUPS, route.allowedEventGroups?.sorted()?.toTypedArray())
                 .set(ACTIVATION_ROUTE.HEALTHCHECK_URL, route.healthcheckUrl)
                 .onConflict(ACTIVATION_ROUTE.ACTIVATION_ID).doNothing().awaitSingle()
+            dsl.update(PLUGIN_ACTIVATION)
+                .set(
+                    controlUrl,
+                    dsl.select(ACTIVATION_ROUTE.SIGNAL_DST).from(ACTIVATION_ROUTE)
+                        .where(ACTIVATION_ROUTE.ACTIVATION_ID.eq(lease.activationId)),
+                )
+                .where(PLUGIN_ACTIVATION.ACTIVATION_ID.eq(lease.activationId))
+                .and(controlUrl.isNull)
+                .awaitSingle()
         }
     }
 
@@ -201,3 +228,8 @@ class JooqActivationStore(private val tx: JooqTransaction, private val mapper: O
         }
     }
 }
+
+private fun missingControlUrl() = PluginManagerException(
+    ErrorCode.PLUGIN_DEACTIVATION_UNAVAILABLE,
+    "Original plugin control URL is unavailable",
+)

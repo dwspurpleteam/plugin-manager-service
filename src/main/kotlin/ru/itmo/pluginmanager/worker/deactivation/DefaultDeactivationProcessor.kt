@@ -2,7 +2,6 @@ package ru.itmo.pluginmanager.worker.deactivation
 
 import jakarta.enterprise.context.ApplicationScoped
 import ru.itmo.pluginmanager.activation.PluginActivationNotifier
-import ru.itmo.pluginmanager.application.ConfigurationService
 import ru.itmo.pluginmanager.config.PluginManagerConfig
 import ru.itmo.pluginmanager.domain.Activation
 import ru.itmo.pluginmanager.domain.ActivationState
@@ -16,12 +15,10 @@ import ru.itmo.pluginmanager.worker.WorkLease
 import ru.itmo.pluginmanager.worker.WorkerProcessor
 import java.time.Clock
 
-@Suppress("LongParameterList")
 @ApplicationScoped
 class DefaultDeactivationProcessor(
     private val store: ActivationStore,
     private val work: WorkStore,
-    private val configurations: ConfigurationService,
     private val notifier: PluginActivationNotifier,
     private val secrets: ActivationSecrets,
     private val config: PluginManagerConfig,
@@ -46,9 +43,7 @@ class DefaultDeactivationProcessor(
 
     private suspend fun deliver(activation: Activation, requestedBy: String) {
         val id = activation.activationId
-        val endpoint = store.route(id)?.signalDst
-            ?: activation.selection?.let { configurations.get(it).manifest.backend.controlUrl }
-            ?: return
+        val endpoint = store.controlUrl(id) ?: return
         val callId = activation.request.callId
         notifier.deactivate(
             endpoint,

@@ -30,6 +30,7 @@ class MemoryStores :
         null,
     )
     var savedRoute: ActivationRoute? = null
+    var savedControlUrl: String? = null
     var retried = false
     var deactivationRequestedBy: String? = null
     var checked: Boolean? = null
@@ -65,11 +66,20 @@ class MemoryStores :
         it.request.callId == callId && it.state == ActivationState.ACTIVE
     }
     override suspend fun route(activationId: UUID) = savedRoute
+    override suspend fun controlUrl(activationId: UUID) = savedControlUrl
+
+    override suspend fun verifyActivationLease(lease: WorkLease) {
+        if (activation.state != ActivationState.ACTIVATING) {
+            throw PluginManagerException(ErrorCode.LEASE_LOST, "Activation lease revoked")
+        }
+    }
+
     override suspend fun pinSelection(lease: WorkLease, selection: PluginSelection) {
         activation = activation.copy(selection = selection)
     }
     override suspend fun saveRoute(lease: WorkLease, route: ActivationRoute) {
         savedRoute = route
+        savedControlUrl = route.signalDst
     }
     override suspend fun activate(lease: WorkLease, nextHealthcheckAt: Instant) {
         checkNotNull(savedRoute)

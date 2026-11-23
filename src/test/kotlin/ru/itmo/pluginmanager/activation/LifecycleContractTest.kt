@@ -1,5 +1,7 @@
 package ru.itmo.pluginmanager.activation
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -72,11 +74,11 @@ class LifecycleContractTest {
         override suspend fun get(selection: PluginSelection) = PluginConfiguration(selection, configuredManifest)
     }
 
-    private fun processor(): WorkerProcessor = DefaultActivationProcessor(
+    private fun processor(probe: PluginHealthcheck = health): WorkerProcessor = DefaultActivationProcessor(
         store,
         store,
         configurations,
-        health,
+        probe,
         notifier,
         secrets,
         policy(),
@@ -101,6 +103,35 @@ class LifecycleContractTest {
         assertEquals(null, store.savedRoute!!.allowedEventGroups)
         assertEquals(WorkKind.ACTIVATE, processor().kind)
         assertEquals(1, resolutions)
+    }
+
+    /**
+     * Тест проверяет деактивацию во время проверки готовности плагина.
+     * Ожидаемый результат: после отзыва lease воркер не отправляет команду активации.
+     */
+    @Test
+    fun `deactivation revokes activation while healthcheck is running`() = runBlocking {
+        val checking = CompletableDeferred<Unit>()
+        val resume = CompletableDeferred<Unit>()
+        val probe = object : PluginHealthcheck {
+            override suspend fun check(url: String): Boolean {
+                checking.complete(Unit)
+                resume.await()
+                return true
+            }
+        }
+        val lease = store.lease
+        val activation = async {
+            runCatching { processor(probe).process(lease) }
+        }
+        checking.await()
+        store.beginDeactivation(lease.activationId, "moderator")
+        resume.complete(Unit)
+
+        val failure = activation.await().exceptionOrNull() as? PluginManagerException
+        assertEquals(ErrorCode.LEASE_LOST, failure?.code)
+        assertEquals(null, sentMessage)
+        assertEquals(ActivationState.STOPPING, store.activation.state)
     }
 
     /**
