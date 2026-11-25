@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test
 import ru.itmo.pluginmanager.database.JooqTransaction
 import ru.itmo.pluginmanager.database.PostgresTestResource
 import ru.itmo.pluginmanager.domain.ActivationRequest
+import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
 import ru.itmo.pluginmanager.worker.WorkKind
 import java.time.Duration
@@ -75,5 +76,41 @@ class SingleActivationTest {
                 .awaitSingle()
         }
         assertNotEquals(retry.activationId, store.register(input.copy(idempotencyKey = "restart")).activationId)
+    }
+
+    @Test
+    fun `registration returns the activation if it fails after the insert conflict`() = runBlocking {
+        reset()
+        val store = storage()
+        val input = request().copy(callId = "race-call")
+        val first = store.register(input)
+        transaction.transaction { dsl ->
+            dsl.query(
+                """
+                CREATE FUNCTION finish_test_activation() RETURNS trigger AS ${'$'}${'$'}
+                BEGIN
+                    UPDATE plugin_activation SET state = 'FAILED', failure_code = 'HEALTHCHECK_FAILED'
+                    WHERE call_id = 'race-call' AND state = 'ACTIVATING';
+                    RETURN NULL;
+                END;
+                ${'$'}${'$'} LANGUAGE plpgsql
+                """.trimIndent(),
+            ).awaitFirstOrNull()
+            dsl.query(
+                "CREATE TRIGGER finish_test_activation AFTER INSERT ON plugin_activation " +
+                    "FOR EACH STATEMENT EXECUTE FUNCTION finish_test_activation()",
+            ).awaitFirstOrNull()
+        }
+        try {
+            val result = store.register(input.copy(requestedBy = "another-user", idempotencyKey = "another-key"))
+            assertEquals(first.activationId, result.activationId)
+            assertEquals(false, result.created)
+            assertEquals(ActivationState.FAILED, store.find(first.activationId)!!.state)
+        } finally {
+            transaction.transaction { dsl ->
+                dsl.query("DROP TRIGGER finish_test_activation ON plugin_activation").awaitFirstOrNull()
+                dsl.query("DROP FUNCTION finish_test_activation()").awaitFirstOrNull()
+            }
+        }
     }
 }

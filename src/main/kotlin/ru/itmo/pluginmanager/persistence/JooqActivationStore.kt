@@ -29,52 +29,54 @@ import ru.itmo.pluginmanager.jooq.generated.enums.ActivationWorkKind as Database
 @ApplicationScoped
 class JooqActivationStore(private val tx: JooqTransaction, private val mapper: ObjectMapper) : ActivationStore {
     override suspend fun register(request: ActivationRequest): RegistrationResult = tx.transaction { dsl ->
-        while (true) {
-            val id = UUID.randomUUID()
-            val inserted = dsl.insertInto(PLUGIN_ACTIVATION)
-                .set(PLUGIN_ACTIVATION.ACTIVATION_ID, id)
-                .set(PLUGIN_ACTIVATION.CALL_ID, request.callId)
-                .set(PLUGIN_ACTIVATION.PLUGIN_ID, request.pluginId)
-                .set(PLUGIN_ACTIVATION.REQUESTED_BY, request.requestedBy)
-                .set(PLUGIN_ACTIVATION.IDEMPOTENCY_KEY, request.idempotencyKey)
-                .set(PLUGIN_ACTIVATION.REQUESTED_VERSION, request.pluginVersion)
-                .set(PLUGIN_ACTIVATION.REQUESTED_REGISTRY_ID, request.pluginRegistryId)
-                .set(
-                    PLUGIN_ACTIVATION.INITIAL_CONTEXT,
-                    request.initialContext?.let { context ->
-                        JSONB.valueOf(mapper.writeValueAsString(context))
-                    },
-                )
-                .set(PLUGIN_ACTIVATION.STATE, DatabaseActivationState.ACTIVATING)
-                .onConflictDoNothing().awaitSingle()
-            if (inserted == 0) {
-                val old = dsl.selectFrom(PLUGIN_ACTIVATION).where(PLUGIN_ACTIVATION.CALL_ID.eq(request.callId))
-                    .and(PLUGIN_ACTIVATION.IDEMPOTENCY_KEY.eq(request.idempotencyKey))
-                    .awaitFirstOrNull()?.toDomain(mapper)
-                if (old != null) {
-                    if (old.request != request) storageError(ErrorCode.IDEMPOTENCY_CONFLICT)
-                    return@transaction RegistrationResult(old.activationId, false)
-                }
-                val existing = dsl.selectFrom(PLUGIN_ACTIVATION)
-                    .where(PLUGIN_ACTIVATION.CALL_ID.eq(request.callId))
-                    .and(PLUGIN_ACTIVATION.PLUGIN_ID.eq(request.pluginId))
-                    .and(PLUGIN_ACTIVATION.STATE.notIn(DatabaseActivationState.FAILED, DatabaseActivationState.STOPPED))
-                    .awaitFirstOrNull()
-                if (existing != null) return@transaction RegistrationResult(existing.activationId, false)
-            } else {
-                dsl.insertInto(ACTIVATION_STATE_HISTORY)
-                    .set(ACTIVATION_STATE_HISTORY.HISTORY_ID, UUID.randomUUID())
-                    .set(ACTIVATION_STATE_HISTORY.ACTIVATION_ID, id)
-                    .set(ACTIVATION_STATE_HISTORY.REVISION, 1L)
-                    .set(ACTIVATION_STATE_HISTORY.TO_STATE, DatabaseActivationState.ACTIVATING).awaitSingle()
-                dsl.insertInto(ACTIVATION_WORK)
-                    .set(ACTIVATION_WORK.ACTIVATION_ID, id)
-                    .set(ACTIVATION_WORK.KIND, DatabaseActivationWorkKind.ACTIVATE).awaitSingle()
-                return@transaction RegistrationResult(id, true)
+        val id = UUID.randomUUID()
+        val inserted = dsl.insertInto(PLUGIN_ACTIVATION)
+            .set(PLUGIN_ACTIVATION.ACTIVATION_ID, id)
+            .set(PLUGIN_ACTIVATION.CALL_ID, request.callId)
+            .set(PLUGIN_ACTIVATION.PLUGIN_ID, request.pluginId)
+            .set(PLUGIN_ACTIVATION.REQUESTED_BY, request.requestedBy)
+            .set(PLUGIN_ACTIVATION.IDEMPOTENCY_KEY, request.idempotencyKey)
+            .set(PLUGIN_ACTIVATION.REQUESTED_VERSION, request.pluginVersion)
+            .set(PLUGIN_ACTIVATION.REQUESTED_REGISTRY_ID, request.pluginRegistryId)
+            .set(
+                PLUGIN_ACTIVATION.INITIAL_CONTEXT,
+                request.initialContext?.let { context ->
+                    JSONB.valueOf(mapper.writeValueAsString(context))
+                },
+            )
+            .set(PLUGIN_ACTIVATION.STATE, DatabaseActivationState.ACTIVATING)
+            .onConflictDoNothing().awaitSingle()
+        if (inserted == 0) {
+            val old = dsl.selectFrom(PLUGIN_ACTIVATION).where(PLUGIN_ACTIVATION.CALL_ID.eq(request.callId))
+                .and(PLUGIN_ACTIVATION.IDEMPOTENCY_KEY.eq(request.idempotencyKey))
+                .awaitFirstOrNull()?.toDomain(mapper)
+            if (old != null) {
+                if (old.request != request) storageError(ErrorCode.IDEMPOTENCY_CONFLICT)
+                return@transaction RegistrationResult(old.activationId, false)
             }
+            val existing = dsl.selectFrom(PLUGIN_ACTIVATION)
+                .where(PLUGIN_ACTIVATION.CALL_ID.eq(request.callId))
+                .and(PLUGIN_ACTIVATION.PLUGIN_ID.eq(request.pluginId))
+                .and(PLUGIN_ACTIVATION.STATE.notIn(DatabaseActivationState.FAILED, DatabaseActivationState.STOPPED))
+                .awaitFirstOrNull()
+            val activation = existing ?: dsl.selectFrom(PLUGIN_ACTIVATION)
+                .where(PLUGIN_ACTIVATION.CALL_ID.eq(request.callId))
+                .and(PLUGIN_ACTIVATION.PLUGIN_ID.eq(request.pluginId))
+                .orderBy(PLUGIN_ACTIVATION.CREATED_AT.desc(), PLUGIN_ACTIVATION.ACTIVATION_ID.desc())
+                .limit(1)
+                .awaitFirstOrNull() ?: storageError()
+            RegistrationResult(activation.activationId, false)
+        } else {
+            dsl.insertInto(ACTIVATION_STATE_HISTORY)
+                .set(ACTIVATION_STATE_HISTORY.HISTORY_ID, UUID.randomUUID())
+                .set(ACTIVATION_STATE_HISTORY.ACTIVATION_ID, id)
+                .set(ACTIVATION_STATE_HISTORY.REVISION, 1L)
+                .set(ACTIVATION_STATE_HISTORY.TO_STATE, DatabaseActivationState.ACTIVATING).awaitSingle()
+            dsl.insertInto(ACTIVATION_WORK)
+                .set(ACTIVATION_WORK.ACTIVATION_ID, id)
+                .set(ACTIVATION_WORK.KIND, DatabaseActivationWorkKind.ACTIVATE).awaitSingle()
+            RegistrationResult(id, true)
         }
-        @Suppress("UNREACHABLE_CODE")
-        error("Unreachable")
     }
 
     override suspend fun find(activationId: UUID) = tx.transaction { dsl ->
