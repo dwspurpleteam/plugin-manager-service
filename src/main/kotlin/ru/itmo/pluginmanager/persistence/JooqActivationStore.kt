@@ -45,12 +45,27 @@ class JooqActivationStore(private val tx: JooqTransaction, private val mapper: O
                 },
             )
             .set(PLUGIN_ACTIVATION.STATE, DatabaseActivationState.ACTIVATING)
-            .onConflict(PLUGIN_ACTIVATION.CALL_ID, PLUGIN_ACTIVATION.IDEMPOTENCY_KEY).doNothing().awaitSingle()
+            .onConflictDoNothing().awaitSingle()
         if (inserted == 0) {
             val old = dsl.selectFrom(PLUGIN_ACTIVATION).where(PLUGIN_ACTIVATION.CALL_ID.eq(request.callId))
-                .and(PLUGIN_ACTIVATION.IDEMPOTENCY_KEY.eq(request.idempotencyKey)).awaitSingle().toDomain(mapper)
-            if (old.request != request) storageError(ErrorCode.IDEMPOTENCY_CONFLICT)
-            RegistrationResult(old.activationId, false)
+                .and(PLUGIN_ACTIVATION.IDEMPOTENCY_KEY.eq(request.idempotencyKey))
+                .awaitFirstOrNull()?.toDomain(mapper)
+            if (old != null) {
+                if (old.request != request) storageError(ErrorCode.IDEMPOTENCY_CONFLICT)
+                return@transaction RegistrationResult(old.activationId, false)
+            }
+            val existing = dsl.selectFrom(PLUGIN_ACTIVATION)
+                .where(PLUGIN_ACTIVATION.CALL_ID.eq(request.callId))
+                .and(PLUGIN_ACTIVATION.PLUGIN_ID.eq(request.pluginId))
+                .and(PLUGIN_ACTIVATION.STATE.notIn(DatabaseActivationState.FAILED, DatabaseActivationState.STOPPED))
+                .awaitFirstOrNull()
+            val activation = existing ?: dsl.selectFrom(PLUGIN_ACTIVATION)
+                .where(PLUGIN_ACTIVATION.CALL_ID.eq(request.callId))
+                .and(PLUGIN_ACTIVATION.PLUGIN_ID.eq(request.pluginId))
+                .orderBy(PLUGIN_ACTIVATION.CREATED_AT.desc(), PLUGIN_ACTIVATION.ACTIVATION_ID.desc())
+                .limit(1)
+                .awaitFirstOrNull() ?: storageError()
+            RegistrationResult(activation.activationId, false)
         } else {
             dsl.insertInto(ACTIVATION_STATE_HISTORY)
                 .set(ACTIVATION_STATE_HISTORY.HISTORY_ID, UUID.randomUUID())
