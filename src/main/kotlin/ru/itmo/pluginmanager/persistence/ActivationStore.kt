@@ -15,6 +15,12 @@ interface ActivationStore {
     /** Одной транзакцией создаёт активацию, начальную историю и задание с защитой уникальным ключом. */
     suspend fun register(request: ActivationRequest): RegistrationResult
 
+    /** Переводит активацию в STOPPING и ставит задание деактивации и сохраняет маршрут. */
+    suspend fun beginDeactivation(activationId: UUID, requestedBy: String): Activation
+
+    /** Фиксирует STOPPED и удаляет маршрут после подтверждения деактивации. */
+    suspend fun completeDeactivation(lease: WorkLease)
+
     /** Читает активацию либо возвращает null. */
     suspend fun find(activationId: UUID): Activation?
 
@@ -23,6 +29,9 @@ interface ActivationStore {
 
     /** Читает сохранённый маршрут независимо от состояния; проверка доступности относится к сервису. */
     suspend fun route(activationId: UUID): ActivationRoute?
+
+    /** Читает исходный адрес управления плагином после очистки маршрута. */
+    suspend fun controlUrl(activationId: UUID): String?
 
     /** Фиксирует первый выбор версии под действующим lease; последующая замена запрещена. */
     suspend fun pinSelection(lease: WorkLease, selection: PluginSelection)

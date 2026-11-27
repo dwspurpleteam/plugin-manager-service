@@ -3,15 +3,24 @@ package ru.itmo.pluginmanager.api
 import io.quarkus.test.common.QuarkusTestResource
 import io.quarkus.test.junit.QuarkusTest
 import io.restassured.RestAssured.given
+import jakarta.inject.Inject
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import ru.itmo.pluginmanager.database.PostgresTestResource
+import ru.itmo.pluginmanager.worker.BackgroundJobs
 import java.net.URI
+import java.time.Instant
 import java.util.UUID
 
 @QuarkusTest
 @QuarkusTestResource(PostgresTestResource::class)
 class ApiContractTest {
+    @Inject
+    lateinit var jobs: BackgroundJobs
+
     /**
      * Тест проверяет административную регистрацию неизменяемой версии JSON Schema.
      * Ожидаемый результат: создание даёт 201, идентичный повтор 200, другая схема той же версии 409.
@@ -57,6 +66,51 @@ class ApiContractTest {
         given().contentType("application/json").body(body + ("requestedBy" to "other"))
             .post("/v1/activations").then().statusCode(409)
         given().get("/v1/activations/$id/signal-route").then().statusCode(409)
+    }
+
+    /**
+     * Тест проверяет деактивацию через REST и повтор запроса.
+     * Ожидаемый результат: активация переходит в STOPPED, маршрут недоступен, время отмены сохраняется.
+     */
+    @Test
+    fun `deactivation stops an activation and preserves the original timestamp`() {
+        val body = mapOf(
+            "callId" to UUID.randomUUID().toString(),
+            "pluginId" to "plugin",
+            "requestedBy" to "user",
+            "idempotencyKey" to "key",
+        )
+        val id = given().contentType("application/json").body(body).post("/v1/activations")
+            .then().statusCode(202).extract().path<String>("activationId")
+        val path = "/v1/activations/$id/deactivate"
+        val request = mapOf("requestedBy" to "moderator")
+        val accepted = given().contentType("application/json").body(request).post(path)
+            .then().statusCode(202).extract().response()
+        assertEquals("/v1/activations/$id", URI(accepted.header("Location")).path)
+        val result = accepted.jsonPath()
+        assertEquals(id, result.getString("activationId"))
+        assertEquals("plugin", result.getString("pluginId"))
+        assertEquals(false, result.getBoolean("success"))
+        assertEquals(null, result.getString("deactivatedAt"))
+
+        runBlocking {
+            withTimeout(45_000) {
+                while (given().get("/v1/activations/$id").then().statusCode(200).extract().path<String>("state") !=
+                    "STOPPED"
+                ) {
+                    jobs.runTasks()
+                    delay(250)
+                }
+            }
+        }
+        val stopped = given().get("/v1/activations/$id").then().statusCode(200).extract().jsonPath()
+        assertEquals("STOPPED", stopped.getString("state"))
+        given().get("/v1/activations/$id/signal-route").then().statusCode(409)
+
+        val repeated = given().contentType("application/json").body(request).post(path)
+            .then().statusCode(202).extract().jsonPath()
+        assertEquals(true, repeated.getBoolean("success"))
+        assertEquals(Instant.parse(stopped.getString("stateChangedAt")).epochSecond, repeated.getLong("deactivatedAt"))
     }
 
     /**

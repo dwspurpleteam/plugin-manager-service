@@ -84,7 +84,9 @@ class DefaultActivationProcessor(
         if (!health.check(route.healthcheckUrl)) {
             throw PluginManagerException(ErrorCode.HEALTHCHECK_FAILED, "Activation healthcheck failed")
         }
-        sendInitialActivationMessage(activation, checkNotNull(store.find(lease.activationId)?.selection), route)
+        val selection = checkNotNull(store.find(lease.activationId)?.selection)
+        work.verifyActivationLease(lease)
+        sendInitialActivationMessage(activation, selection, route)
         store.activate(lease, clock.instant().plus(config.health().interval()))
     }
 
@@ -121,7 +123,7 @@ class DefaultActivationProcessor(
             store.fail(lease, code)
         } else {
             val delay = config.activation().retryDelays()[lease.attemptCount - 1]
-            work.retryActivation(lease, clock.instant().plus(delay), code)
+            work.retryDelivery(lease, clock.instant().plus(delay), code)
         }
     }
 }

@@ -12,6 +12,9 @@ interface ActivationService {
     /** Атомарно регистрирует активацию и задание либо возвращает совпадающий идемпотентный результат. */
     suspend fun register(request: ActivationRequest): RegistrationResult
 
+    /** Останавливает активацию в звонке и возвращает её итоговое состояние. */
+    suspend fun deactivate(activationId: UUID, requestedBy: String): Activation
+
     /** Возвращает состояние; неизвестный идентификатор приводит к ACTIVATION_NOT_FOUND. */
     suspend fun get(activationId: UUID): Activation
 

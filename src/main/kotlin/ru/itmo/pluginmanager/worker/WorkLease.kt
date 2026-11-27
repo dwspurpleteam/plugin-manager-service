@@ -6,6 +6,7 @@ import java.util.UUID
 enum class WorkKind {
     ACTIVATE,
     HEALTHCHECK,
+    DEACTIVATE,
 }
 
 data class WorkLease(
@@ -15,4 +16,5 @@ data class WorkLease(
     val expiresAt: Instant,
     val attemptCount: Int,
     val consecutiveHealthFailures: Int,
+    val requestedBy: String? = null,
 )

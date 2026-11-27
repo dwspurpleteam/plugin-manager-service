@@ -19,6 +19,15 @@ data class RegisterActivationRequest(
 
 data class RegisterActivationResponse(val activationId: UUID)
 
+data class DeactivateActivationRequest(val requestedBy: String)
+
+data class DeactivationContext(
+    val activationId: UUID,
+    val pluginId: String,
+    val success: Boolean,
+    val deactivatedAt: Long?,
+)
+
 data class ActivationResponse(
     val activationId: UUID,
     val callId: String,

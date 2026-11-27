@@ -20,12 +20,12 @@ import ru.itmo.pluginmanager.jooq.generated.Tables.ACTIVATION_STATE_HISTORY
 import ru.itmo.pluginmanager.jooq.generated.Tables.ACTIVATION_WORK
 import ru.itmo.pluginmanager.jooq.generated.Tables.PLUGIN_ACTIVATION
 import ru.itmo.pluginmanager.jooq.generated.tables.records.PluginActivationRecord
+import ru.itmo.pluginmanager.worker.WorkKind
 import ru.itmo.pluginmanager.worker.WorkLease
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.UUID
 import ru.itmo.pluginmanager.jooq.generated.enums.ActivationState as DatabaseActivationState
-import ru.itmo.pluginmanager.jooq.generated.enums.ActivationWorkKind as DatabaseActivationWorkKind
 
 private val logger = Logger.getLogger("ru.itmo.pluginmanager.persistence.ActivationState")
 
@@ -33,20 +33,26 @@ internal fun storageError(code: ErrorCode = ErrorCode.INTERNAL_ERROR): Nothing =
     throw PluginManagerException(code, "Activation storage operation rejected")
 
 internal suspend fun DSLContext.lockActivation(lease: WorkLease): PluginActivationRecord {
-    val work = selectFrom(ACTIVATION_WORK).where(ACTIVATION_WORK.ACTIVATION_ID.eq(lease.activationId))
+    val work = select(ACTIVATION_WORK.ACTIVATION_ID).from(ACTIVATION_WORK)
+        .where(ACTIVATION_WORK.ACTIVATION_ID.eq(lease.activationId))
         .and(ACTIVATION_WORK.LEASE_TOKEN.eq(lease.token))
-        .and(ACTIVATION_WORK.KIND.eq(DatabaseActivationWorkKind.valueOf(lease.kind.name)))
+        .and(ACTIVATION_WORK.KIND.cast(String::class.java).eq(lease.kind.name))
         .and(ACTIVATION_WORK.LEASE_UNTIL.gt(org.jooq.impl.DSL.field("clock_timestamp()", OffsetDateTime::class.java)))
         .forUpdate().awaitFirstOrNull() ?: storageError(ErrorCode.LEASE_LOST)
-    val activation = selectFrom(PLUGIN_ACTIVATION).where(PLUGIN_ACTIVATION.ACTIVATION_ID.eq(work.activationId))
+    val activation = selectFrom(PLUGIN_ACTIVATION).where(PLUGIN_ACTIVATION.ACTIVATION_ID.eq(work.value1()))
         .forUpdate().awaitFirstOrNull() ?: storageError()
-    if (activation.state != DatabaseActivationState.ACTIVATING &&
-        activation.state != DatabaseActivationState.ACTIVE
-    ) {
+    if (activation.state != lease.kind.expectedState) {
         storageError(ErrorCode.LEASE_LOST)
     }
     return activation
 }
+
+internal val WorkKind.expectedState: DatabaseActivationState
+    get() = when (this) {
+        WorkKind.ACTIVATE -> DatabaseActivationState.ACTIVATING
+        WorkKind.HEALTHCHECK -> DatabaseActivationState.ACTIVE
+        WorkKind.DEACTIVATE -> DatabaseActivationState.STOPPING
+    }
 
 internal suspend fun DSLContext.changeState(
     record: PluginActivationRecord,

@@ -1,5 +1,6 @@
 package ru.itmo.pluginmanager.registry
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.sun.net.httpserver.HttpServer
@@ -12,16 +13,28 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
+import ru.itmo.pluginmanager.activation.HttpPluginActivationNotifier
+import ru.itmo.pluginmanager.application.ActivationServiceImpl
+import ru.itmo.pluginmanager.application.ConfigurationService
 import ru.itmo.pluginmanager.application.DefaultConfigurationService
 import ru.itmo.pluginmanager.application.ManifestSchemaService
 import ru.itmo.pluginmanager.database.PostgresTestResource
+import ru.itmo.pluginmanager.domain.ActivationRoute
+import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.health.HttpPluginHealthcheck
 import ru.itmo.pluginmanager.health.PluginHealthcheck
+import ru.itmo.pluginmanager.routes.ActivationSecrets
+import ru.itmo.pluginmanager.support.MemoryStores
 import ru.itmo.pluginmanager.support.manifest
 import ru.itmo.pluginmanager.support.policy
+import ru.itmo.pluginmanager.worker.WorkKind
+import ru.itmo.pluginmanager.worker.deactivation.DefaultDeactivationProcessor
 import java.net.InetSocketAddress
 import java.net.ServerSocket
+import java.time.Clock
+import java.util.UUID
+import java.util.concurrent.LinkedBlockingQueue
 
 @QuarkusTest
 @QuarkusTestResource(PostgresTestResource::class)
@@ -30,6 +43,71 @@ class HttpContractTest {
 
     @Inject
     lateinit var schemas: ManifestSchemaService
+
+    @Inject
+    lateinit var configurations: ConfigurationService
+
+    /**
+     * Тест проверяет HTTP-команду деактивации и повтор после отказа Plugin Backend.
+     * Ожидаемый результат: запрос содержит идентификаторы звонка и активации; после 2xx сохраняется STOPPED.
+     */
+    @Test
+    fun `deactivation retries the call scoped command until the backend acknowledges it`() = runBlocking {
+        val requests = LinkedBlockingQueue<JsonNode>()
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/plugin/control") { exchange ->
+            exchange.use {
+                val message = mapper.readTree(it.requestBody)
+                requests.add(message)
+                it.sendResponseHeaders(if (requests.size == 1) 503 else 204, -1)
+            }
+        }
+        server.start()
+        try {
+            val store = MemoryStores()
+            val id = store.activation.activationId
+            store.activation = store.activation.copy(state = ActivationState.ACTIVE)
+            val endpoint = "http://127.0.0.1:${server.address.port}/plugin/control"
+            store.savedRoute = ActivationRoute(UUID.randomUUID(), id, endpoint, null, null, endpoint)
+            store.savedControlUrl = endpoint
+            val config = policy()
+            val secrets = ActivationSecrets("0123456789abcdef0123456789abcdef")
+            val service = ActivationServiceImpl(store, config, configurations)
+            val worker = DefaultDeactivationProcessor(
+                store,
+                store,
+                HttpPluginActivationNotifier(config, true),
+                secrets,
+                config,
+                Clock.systemUTC(),
+            )
+
+            assertEquals(ActivationState.STOPPING, service.deactivate(id, "moderator").state)
+            assertEquals(0, requests.size)
+            val lease = store.lease.copy(kind = WorkKind.DEACTIVATE, requestedBy = store.deactivationRequestedBy)
+            worker.process(lease)
+            assertEquals(true, store.retried)
+            assertEquals(ActivationState.STOPPING, store.activation.state)
+            assertEquals(endpoint, store.savedRoute?.signalDst)
+            store.savedRoute = null
+            worker.process(lease.copy(attemptCount = 2))
+            assertEquals(ActivationState.STOPPED, store.activation.state)
+            assertNull(store.savedRoute)
+            assertEquals(store.activation, service.deactivate(id, "moderator"))
+
+            assertEquals(2, requests.size)
+            val message = requests.last()
+            assertEquals("deactivate", message["operation"].asText())
+            assertEquals("1.0", message["schemaVersion"].asText())
+            assertEquals(id.toString(), message["activationId"].asText())
+            assertEquals("call", message["callId"].asText())
+            assertEquals("plugin", message["pluginId"].asText())
+            assertEquals("moderator", message["requestedBy"].asText())
+            assertEquals(true, secrets.matches("call", id.toString(), message["activationSecret"].asText()))
+        } finally {
+            server.stop(0)
+        }
+    }
 
     /**
      * Тест проверяет реальные HTTP-контракты реестра и отсутствие версии.

@@ -153,9 +153,37 @@
           }
         }
       },
+      "DeactivateActivationRequest" : {
+        "type" : "object",
+        "required" : [ "requestedBy" ],
+        "properties" : {
+          "requestedBy" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DeactivationContext" : {
+        "type" : "object",
+        "required" : [ "activationId", "pluginId", "success", "deactivatedAt" ],
+        "properties" : {
+          "activationId" : {
+            "$ref" : "#/components/schemas/UUID"
+          },
+          "pluginId" : {
+            "type" : "string"
+          },
+          "success" : {
+            "type" : "boolean"
+          },
+          "deactivatedAt" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          }
+        }
+      },
       "ErrorCode" : {
         "type" : "string",
-        "enum" : [ "INVALID_REQUEST", "UNKNOWN_REGISTRY", "PLUGIN_NOT_FOUND", "ACTIVATION_NOT_FOUND", "IDEMPOTENCY_CONFLICT", "MANIFEST_VERSION_CONFLICT", "ACTIVATION_NOT_READY", "ACTIVATION_FAILED", "ACTIVATION_NOT_ACTIVE", "REGISTRY_UNAVAILABLE", "REGISTRY_INVALID_RESPONSE", "INVALID_MANIFEST", "HEALTHCHECK_FAILED", "ACTIVATION_ATTEMPTS_EXHAUSTED", "LEASE_LOST", "DATABASE_UNAVAILABLE", "INTERNAL_ERROR" ]
+        "enum" : [ "INVALID_REQUEST", "UNKNOWN_REGISTRY", "PLUGIN_NOT_FOUND", "ACTIVATION_NOT_FOUND", "IDEMPOTENCY_CONFLICT", "MANIFEST_VERSION_CONFLICT", "ACTIVATION_NOT_READY", "ACTIVATION_FAILED", "ACTIVATION_NOT_ACTIVE", "REGISTRY_UNAVAILABLE", "PLUGIN_DEACTIVATION_UNAVAILABLE", "REGISTRY_INVALID_RESPONSE", "INVALID_MANIFEST", "HEALTHCHECK_FAILED", "ACTIVATION_ATTEMPTS_EXHAUSTED", "LEASE_LOST", "DATABASE_UNAVAILABLE", "INTERNAL_ERROR" ]
       },
       "Instant" : {
         "type" : "string",
@@ -261,7 +289,7 @@
         "type" : "object",
         "properties" : {
           "sdk-version" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "health-url" : {
             "type" : "string"
@@ -318,7 +346,7 @@
         "type" : "object",
         "properties" : {
           "sdk-version" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "url-web" : {
             "type" : "string"
@@ -341,7 +369,7 @@
             "type" : "string"
           },
           "description" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "frontend" : {
             "$ref" : "#/components/schemas/PluginFrontend"
@@ -350,7 +378,7 @@
             "$ref" : "#/components/schemas/PluginBackend"
           }
         },
-        "required" : [ "name", "description", "frontend", "backend" ]
+        "required" : [ "name", "frontend", "backend" ]
       },
       "PluginMedia" : {
         "type" : "object",
@@ -490,6 +518,45 @@
           }
         },
         "summary" : "Get",
+        "tags" : [ "Activation Resource" ]
+      }
+    },
+    "/v1/activations/{activationId}/deactivate" : {
+      "post" : {
+        "parameters" : [ {
+          "name" : "activationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/UUID"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeactivateActivationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Deactivation accepted",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeactivationContext"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad Request"
+          }
+        },
+        "summary" : "Deactivate",
         "tags" : [ "Activation Resource" ]
       }
     },

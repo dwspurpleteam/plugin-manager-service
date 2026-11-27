@@ -126,15 +126,17 @@ class StorageContractTest {
     }
 
     /**
-     * Тест проверяет восстановление просроченного lease после перезапуска обработчика.
+     * Тест проверяет восстановление просроченного lease и сохранение инициатора активации.
      * Ожидаемый результат: новый токен захватывает работу, старый не может записать результат.
      */
     @Test
     fun `expired work is reclaimed and stale result is fenced`() = runBlocking {
         reset()
-        val id = storage().register(request()).activationId
+        val input = request()
+        val id = storage().register(input).activationId
         val first = work().claim(WorkKind.ACTIVATE, 1, Duration.ofSeconds(30)).single()
         assertEquals(id, first.activationId)
+        assertEquals(input.requestedBy, first.requestedBy)
         assertEquals(emptyList<Any>(), work().claim(WorkKind.ACTIVATE, 1, Duration.ofSeconds(30)))
         transaction.transaction { dsl ->
             dsl.query("UPDATE activation_work SET lease_until = CURRENT_TIMESTAMP - INTERVAL '1 second'").awaitSingle()
@@ -142,6 +144,7 @@ class StorageContractTest {
         val second = work().claim(WorkKind.ACTIVATE, 1, Duration.ofSeconds(30)).single()
         assertNotEquals(first.token, second.token)
         assertEquals(2, second.attemptCount)
+        assertEquals(input.requestedBy, second.requestedBy)
         val stale = assertThrows(PluginManagerException::class.java) {
             runBlocking { storage().pinSelection(first, PluginSelection("plugin", "1", "registry")) }
         }
@@ -219,7 +222,7 @@ class StorageContractTest {
 
     /**
      * Тест проверяет очистку истории и маршрутов без удаления активаций.
-     * Ожидаемый результат: текущая история и активный маршрут сохраняются; FAILED-маршрут удаляется.
+     * Ожидаемый результат: маршрут FAILED-активации удаляется, исходный адрес управления сохраняется.
      */
     @Test
     fun `garbage collection preserves current revision and active routes`() = runBlocking {
@@ -246,6 +249,7 @@ class StorageContractTest {
         store.fail(work().claim(WorkKind.HEALTHCHECK, 1, Duration.ofSeconds(30)).single(), ErrorCode.HEALTHCHECK_FAILED)
         assertEquals(1, maintenance().deleteInactiveRoutes(100))
         assertNull(store.route(id))
+        assertEquals("https://example.com", store.controlUrl(id))
         assertFalse(store.find(id) == null)
         assertEquals(1, maintenance().deleteHistoryBefore(Instant.now().plusSeconds(60), 100))
     }

@@ -103,6 +103,19 @@ data class ActivationRoute(
     val includeParticipants: Boolean = false,
 )
 
+/** Команда завершения работы Plugin Backend для конкретной активации звонка. */
+data class PluginDeactivationMessage(
+    val activationId: UUID,
+    val callId: String,
+    val pluginId: String,
+    val requestedBy: String,
+    val activationSecret: String,
+    val schemaVersion: String = "1.0",
+    val operation: String = "deactivate",
+) {
+    override fun toString(): String = "PluginDeactivationMessage(activationId=$activationId, callId=$callId)"
+}
+
 data class RegistrationResult(val activationId: UUID, val created: Boolean)
 
 /** Версионированное сообщение, отправляемое Plugin Backend при активации. */

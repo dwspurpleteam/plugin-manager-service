@@ -44,6 +44,12 @@ class BackgroundContractTest {
                 processed.incrementAndGet()
             }
         }
+        val deactivation = object : WorkerProcessor {
+            override val kind = WorkKind.DEACTIVATE
+            override suspend fun process(lease: WorkLease) {
+                processed.incrementAndGet()
+            }
+        }
         val maintenance = object : MaintenanceStore {
             override suspend fun deleteHistoryBefore(cutoff: Instant, limit: Int): Int {
                 history = true
@@ -56,14 +62,14 @@ class BackgroundContractTest {
         }
         val jobs: BackgroundJobs = DefaultBackgroundJobs(
             work,
-            mutableListOf(activation, health),
+            mutableListOf(activation, health, deactivation),
             maintenance,
             policy(mapOf("plugin-manager.activation.concurrency" to "2", "plugin-manager.health.concurrency" to "2")),
             Clock.systemUTC(),
         )
         jobs.runTasks()
         jobs.cleanUp()
-        assertEquals(4, processed.get())
+        assertEquals(6, processed.get())
         assertTrue(history)
         assertTrue(routes)
     }

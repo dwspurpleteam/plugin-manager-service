@@ -5,6 +5,7 @@ import ru.itmo.pluginmanager.domain.ActivationRequest
 import ru.itmo.pluginmanager.domain.ActivationRoute
 import ru.itmo.pluginmanager.domain.ActivationState
 import ru.itmo.pluginmanager.domain.ErrorCode
+import ru.itmo.pluginmanager.domain.PluginManagerException
 import ru.itmo.pluginmanager.domain.PluginSelection
 import ru.itmo.pluginmanager.domain.RegistrationResult
 import ru.itmo.pluginmanager.persistence.ActivationStore
@@ -29,21 +30,56 @@ class MemoryStores :
         null,
     )
     var savedRoute: ActivationRoute? = null
+    var savedControlUrl: String? = null
     var retried = false
+    var deactivationRequestedBy: String? = null
     var checked: Boolean? = null
     val lease get() = WorkLease(activation.activationId, UUID.randomUUID(), WorkKind.ACTIVATE, Instant.MAX, 1, 0)
 
     override suspend fun register(request: ActivationRequest) = RegistrationResult(activation.activationId, true)
+    override suspend fun beginDeactivation(activationId: UUID, requestedBy: String): Activation {
+        val current = find(activationId)
+            ?: throw PluginManagerException(ErrorCode.ACTIVATION_NOT_FOUND, "Activation not found")
+        if (current.state != ActivationState.STOPPED && current.state != ActivationState.STOPPING) {
+            activation = current.copy(state = ActivationState.STOPPING, failureCode = null)
+            deactivationRequestedBy = requestedBy
+        }
+        return activation
+    }
+
+    override suspend fun completeDeactivation(lease: WorkLease) {
+        val current = find(lease.activationId)
+            ?: throw PluginManagerException(ErrorCode.ACTIVATION_NOT_FOUND, "Activation not found")
+        if (current.state != ActivationState.STOPPED) {
+            activation = current.copy(
+                state = ActivationState.STOPPED,
+                stateRevision = current.stateRevision + 1,
+                stateChangedAt = Instant.now(),
+                failureCode = null,
+            )
+            savedRoute = null
+            deactivationRequestedBy = null
+        }
+    }
     override suspend fun find(activationId: UUID) = activation.takeIf { it.activationId == activationId }
     override suspend fun findActiveByCall(callId: String) = listOf(activation).filter {
         it.request.callId == callId && it.state == ActivationState.ACTIVE
     }
     override suspend fun route(activationId: UUID) = savedRoute
+    override suspend fun controlUrl(activationId: UUID) = savedControlUrl
+
+    override suspend fun verifyActivationLease(lease: WorkLease) {
+        if (activation.state != ActivationState.ACTIVATING) {
+            throw PluginManagerException(ErrorCode.LEASE_LOST, "Activation lease revoked")
+        }
+    }
+
     override suspend fun pinSelection(lease: WorkLease, selection: PluginSelection) {
         activation = activation.copy(selection = selection)
     }
     override suspend fun saveRoute(lease: WorkLease, route: ActivationRoute) {
         savedRoute = route
+        savedControlUrl = route.signalDst
     }
     override suspend fun activate(lease: WorkLease, nextHealthcheckAt: Instant) {
         checkNotNull(savedRoute)
@@ -53,7 +89,7 @@ class MemoryStores :
         activation = activation.copy(state = ActivationState.FAILED, failureCode = reason)
     }
     override suspend fun claim(kind: WorkKind, limit: Int, leaseDuration: Duration) = emptyList<WorkLease>()
-    override suspend fun retryActivation(lease: WorkLease, nextRunAt: Instant, reason: ErrorCode) {
+    override suspend fun retryDelivery(lease: WorkLease, nextRunAt: Instant, reason: ErrorCode) {
         retried = true
     }
     override suspend fun recordHealthcheck(
